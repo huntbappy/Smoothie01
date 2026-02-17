@@ -1,4 +1,4 @@
-import { ItemConfig } from './types';
+import { ItemConfig, StockItemConfig } from './types';
 
 export const INITIAL_ITEMS: ItemConfig[] = [
   { id: '1', name: 'Lemonade', nameBN: 'লেমনেড', price250: 60, price350: 80 },
@@ -22,6 +22,42 @@ export const INITIAL_ITEMS: ItemConfig[] = [
   { id: '19', name: 'Kiwi', nameBN: 'কিউই', price250: 150, price350: 200 },
   { id: '20', name: 'Passion', nameBN: 'প্যাশন', price250: 150, price350: 200 },
   { id: '21', name: 'Boba', nameBN: 'বোবা', price250: 20, price350: 20 },
+];
+
+export const STOCK_ITEMS: StockItemConfig[] = [
+  { id: 's1', name: 'Sugar', nameBN: 'চিনি' },
+  { id: 's2', name: 'Hersleys Strawberry', nameBN: 'হার্শিস স্ট্রবেরি' },
+  { id: 's3', name: 'Hersleys Chocolate', nameBN: 'হার্শিস চকলেট' },
+  { id: 's4', name: 'Hersleys Caramel', nameBN: 'হার্শিস ক্যারামেল' },
+  { id: 's5', name: 'Milk (Liquid)', nameBN: 'তরল দুধ' },
+  { id: 's6', name: 'Milk (Powder)', nameBN: 'গুঁড়া দুধ' },
+  { id: 's7', name: 'Yogurt', nameBN: 'দই' },
+  { id: 's8', name: 'Lemon', nameBN: 'লেবু' },
+  { id: 's9', name: 'Pudina', nameBN: 'পুদিনা' },
+  { id: 's10', name: 'Bit solt', nameBN: 'বিট লবণ' },
+  { id: 's11', name: 'Cadbury powder', nameBN: 'ক্যাডবেরি পাউডার' },
+  { id: 's12', name: 'Choco chips', nameBN: 'চকো চিপস' },
+  { id: 's13', name: 'Coffee', nameBN: 'কফি' },
+  { id: 's14', name: 'Oreo', nameBN: 'ওরিও' },
+  { id: 's15', name: 'Kitkat', nameBN: 'কিটকাট' },
+  { id: 's16', name: 'Coconut jelly', nameBN: 'নারকেল জেলি' },
+  { id: 's17', name: 'Boba Pearl', nameBN: 'বোবা পার্ল' },
+  { id: 's18', name: 'Blueberry', nameBN: 'ব্লুবেরি' },
+  { id: 's19', name: 'Murlberry', nameBN: 'মালবেরি' },
+  { id: 's20', name: 'Strawberry', nameBN: 'স্ট্রবেরি' },
+  { id: 's21', name: 'Kiwi', nameBN: 'কিউই' },
+  { id: 's22', name: 'Passion', nameBN: 'প্যাশন' },
+  { id: 's23', name: 'PVC Glass', nameBN: 'পিভিসি গ্লাস' },
+  { id: 's24', name: 'Pipe', nameBN: 'পাইপ' },
+  { id: 's25', name: 'Role', nameBN: 'রোল' },
+  { id: 's26', name: 'Mango', nameBN: 'আম' },
+  { id: 's27', name: 'Green Mango', nameBN: 'কাঁচা আম' },
+  { id: 's28', name: 'Papaya', nameBN: 'পেঁপে' },
+  { id: 's29', name: 'Watermelon', nameBN: 'তরমুজ' },
+  { id: 's30', name: 'Date', nameBN: 'খেজুর' },
+  { id: 's31', name: 'Malta', nameBN: 'মাল্টা' },
+  { id: 's32', name: 'Orange', nameBN: 'কমলা' },
+  { id: 's33', name: 'Pineapple', nameBN: 'আনারস' },
 ];
 
 export const TRANSLATIONS = {
@@ -52,6 +88,14 @@ export const TRANSLATIONS = {
     importSuccess: 'Data imported successfully!',
     importError: 'Failed to import data.',
     clearAll: 'Clear all',
+    viewMode: 'View Mode',
+    dailySales: 'Daily Sales',
+    monthlyStock: 'Monthly Stock',
+    qty: 'QTY',
+    rate: 'Taka',
+    grandTotal: 'Grand Total',
+    shareSalesTitle: 'Share Sales Summary',
+    shareStockTitle: 'Share Stock Summary',
   },
   BN: {
     title: 'স্মুদি বার',
@@ -80,5 +124,13 @@ export const TRANSLATIONS = {
     importSuccess: 'সফলভাবে ইমপোর্ট হয়েছে!',
     importError: 'ইমপোর্ট ব্যর্থ হয়েছে।',
     clearAll: 'সব মুছুন',
+    viewMode: 'ভিউ মোড',
+    dailySales: 'দৈনিক বিক্রয়',
+    monthlyStock: 'মাসিক স্টক',
+    qty: 'QTY',
+    rate: 'টাকা',
+    grandTotal: 'সর্বমোট',
+    shareSalesTitle: 'বিক্রয় রিপোর্ট শেয়ার',
+    shareStockTitle: 'স্টক রিপোর্ট শেয়ার',
   }
 };

@@ -1,4 +1,5 @@
 export type Language = 'EN' | 'BN';
+export type ViewMode = 'sales' | 'stock';
 
 export interface ItemConfig {
   id: string;
@@ -6,6 +7,12 @@ export interface ItemConfig {
   nameBN: string;
   price250: number;
   price350: number;
+}
+
+export interface StockItemConfig {
+  id: string;
+  name: string;
+  nameBN: string;
 }
 
 export interface DetailEntry {
@@ -22,6 +29,15 @@ export interface DayData {
   expenseDetails?: DetailEntry[];
   previousBalance: number;
   notes: string;
+}
+
+export interface StockEntry {
+  qty: number;
+  taka: number;
+}
+
+export interface MonthStockData {
+  items: Record<string, StockEntry>;
 }
 
 export interface AIAnalysisResponse {

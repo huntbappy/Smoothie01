@@ -8,6 +8,40 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                coffee: {
+                  50: '#f7f4f2',
+                  100: '#efe9e5',
+                  200: '#dfd2ca',
+                  300: '#c6b1a3',
+                  400: '#a88a77',
+                  500: '#6F4E37', // Primary Coffee
+                  600: '#7e5f4c',
+                  700: '#694f41',
+                  800: '#584339',
+                  900: '#4a3a32',
+                },
+                lemongreen: {
+                  50: '#f6f9ed',
+                  100: '#ecf2d8',
+                  200: '#dae6b5',
+                  300: '#c1d486',
+                  400: '#A4C639', // Primary Lemon Green
+                  500: '#8ba832',
+                  600: '#6c8426',
+                  700: '#526420',
+                  800: '#43501e',
+                  900: '#3a441d',
+                }
+              }
+            }
+          }
+        }
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -23,14 +57,11 @@
             background: #e2e8f0;
             border-radius: 10px;
         }
-        /* Hide arrows/spinners from number inputs */
-        /* Chrome, Safari, Edge, Opera */
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        /* Firefox */
         input[type=number] {
             -moz-appearance: textfield;
         }
