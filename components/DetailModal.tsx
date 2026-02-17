@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Save } from 'lucide-react';
 import { DetailEntry } from '../types';
 
@@ -14,6 +14,16 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
   const [localEntries, setLocalEntries] = React.useState<DetailEntry[]>(
     entries.length > 0 ? entries : [{ id: '1', description: '', amount: 0 }]
   );
+
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the first input field when the modal opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      firstInputRef.current?.focus();
+    }, 100); // Small delay to ensure modal animation doesn't interfere with focus
+    return () => clearTimeout(timer);
+  }, []);
 
   const addRow = () => {
     setLocalEntries([...localEntries, { id: Date.now().toString(), description: '', amount: 0 }]);
@@ -58,9 +68,10 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
         </div>
 
         <div className="p-6 overflow-y-auto space-y-3 custom-scrollbar">
-          {localEntries.map((entry) => (
+          {localEntries.map((entry, index) => (
             <div key={entry.id} className="flex gap-2 items-center">
               <input
+                ref={index === 0 ? firstInputRef : null}
                 type="text"
                 value={entry.description}
                 onKeyDown={handleKeyDown}

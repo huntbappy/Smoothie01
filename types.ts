@@ -7,6 +7,8 @@ export interface ItemConfig {
   nameBN: string;
   price250: number;
   price350: number;
+  color?: string; // Hex color for light background
+  icon?: string;  // Fruit emoji or icon
 }
 
 export interface StockItemConfig {

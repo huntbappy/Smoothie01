@@ -143,20 +143,33 @@ const App: React.FC = () => {
   const totalBalance = cashInHand + (currentDayData.previousBalance || 0);
 
   const handleClearAll = () => {
-    if(window.confirm(t.clearAll + "?")) {
-      const balanceToRollOver = totalBalance;
-      setHistory(prev => ({
-        ...prev,
-        [currentDate]: {
-          quantities: {},
-          purchase: 0,
-          expense: 0,
-          purchaseDetails: [],
-          expenseDetails: [],
-          notes: '',
-          previousBalance: balanceToRollOver
-        }
-      }));
+    if (viewMode === 'sales') {
+      const confirmationMsg = lang === 'BN' 
+        ? "আপনি কি নিশ্চিত যে আপনি আজকের সব ডাটা মুছে ফেলতে চান? ব্যালেন্সটি 'প্রিভিয়াস ব্যালেন্স' এ জমা হয়ে যাবে।" 
+        : "Are you sure you want to clear today's data? The total balance will be forwarded to Previous Balance.";
+      
+      if(window.confirm(confirmationMsg)) {
+        const balanceToRollOver = totalBalance;
+        setHistory(prev => ({
+          ...prev,
+          [currentDate]: {
+            quantities: {},
+            purchase: 0,
+            expense: 0,
+            purchaseDetails: [],
+            expenseDetails: [],
+            notes: '',
+            previousBalance: balanceToRollOver
+          }
+        }));
+      }
+    } else {
+      if(window.confirm(t.clearAll + "?")) {
+        setStockHistory(prev => ({
+          ...prev,
+          [currentMonthKey]: { items: {} }
+        }));
+      }
     }
   };
 
@@ -168,7 +181,7 @@ const App: React.FC = () => {
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
           hasEntries = true;
-          text += `🥤 *${lang === 'BN' ? item.nameBN : item.name}*\n`;
+          text += `${item.icon || '🥤'} *${lang === 'BN' ? item.nameBN : item.name}*\n`;
           if (item.q250 > 0) text += `   • 250ml: ${item.q250}\n`;
           if (item.q350 > 0) text += `   • 350ml: ${item.q350}\n`;
           text += `   *Subtotal: ${t.taka}${item.itemTotal}*\n\n`;
@@ -178,9 +191,31 @@ const App: React.FC = () => {
       if (!hasEntries) text += `(No sales recorded yet)\n\n`;
 
       text += `━━━━━━━━━━━━━━━\n`;
-      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
-      text += `📥 *${t.purchase}: ${t.taka}${currentDayData.purchase}*\n`;
-      text += `💸 *${t.expense}: ${t.taka}${currentDayData.expense}*\n`;
+      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n\n`;
+
+      // Itemized Purchase Details
+      if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
+        text += `🛒 *${t.purchase} Details:*\n`;
+        currentDayData.purchaseDetails.forEach(p => {
+          if (p.amount > 0) text += `   • ${p.description || '(no desc)'}: ${t.taka}${p.amount}\n`;
+        });
+        text += `   *Total ${t.purchase}: ${t.taka}${currentDayData.purchase}*\n\n`;
+      } else {
+        text += `📥 *${t.purchase}: ${t.taka}${currentDayData.purchase}*\n`;
+      }
+
+      // Itemized Expense Details
+      if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
+        text += `💸 *${t.expense} Details:*\n`;
+        currentDayData.expenseDetails.forEach(e => {
+          if (e.amount > 0) text += `   • ${e.description || '(no desc)'}: ${t.taka}${e.amount}\n`;
+        });
+        text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
+      } else {
+        text += `💸 *${t.expense}: ${t.taka}${currentDayData.expense}*\n`;
+      }
+
+      text += `━━━━━━━━━━━━━━━\n`;
       text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
       text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
       text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
@@ -247,10 +282,17 @@ const App: React.FC = () => {
             
             <div className="space-y-3 mb-8">
               {totals.itemsWithTotals.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-3 rounded-2xl border border-gray-100 transition-all hover:bg-white hover:shadow-xl hover:shadow-gray-100">
-                  <div className="col-span-5">
-                    <p className="text-sm font-bold text-black leading-tight">{lang === 'BN' ? item.nameBN : item.name}</p>
-                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{t.taka}{item.price250} | {t.taka}{item.price350}</p>
+                <div 
+                  key={item.id} 
+                  className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border border-gray-100 transition-all hover:shadow-lg"
+                  style={{ backgroundColor: item.color || '#f9fafb' }}
+                >
+                  <div className="col-span-5 flex items-center gap-2">
+                    <span className="text-lg">{item.icon || '🥤'}</span>
+                    <div>
+                      <p className="text-sm font-bold text-black leading-tight">{lang === 'BN' ? item.nameBN : item.name}</p>
+                      <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{t.taka}{item.price250} | {t.taka}{item.price350}</p>
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <input 
@@ -260,7 +302,7 @@ const App: React.FC = () => {
                       onKeyDown={handleKeyDown}
                       onFocus={(e) => e.currentTarget.select()}
                       onChange={(e) => updateQty(item.id, 'q250', e.target.value)} 
-                      className="qty-input w-full text-center bg-white border border-gray-200 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all" 
+                      className="qty-input w-full text-center bg-white/80 border border-gray-200/50 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-white focus:border-sky-400 outline-none transition-all" 
                     />
                   </div>
                   <div className="col-span-2">
@@ -271,7 +313,7 @@ const App: React.FC = () => {
                       onKeyDown={handleKeyDown}
                       onFocus={(e) => e.currentTarget.select()}
                       onChange={(e) => updateQty(item.id, 'q350', e.target.value)} 
-                      className="qty-input w-full text-center bg-white border border-gray-200 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-sky-50 focus:border-sky-400 outline-none transition-all" 
+                      className="qty-input w-full text-center bg-white/80 border border-gray-200/50 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-white focus:border-sky-400 outline-none transition-all" 
                     />
                   </div>
                   <div className="col-span-3 text-right">
@@ -405,7 +447,7 @@ const App: React.FC = () => {
         )}
 
         <div className="flex gap-4 mb-16">
-          <button onClick={handleClearAll} className="flex-1 py-5 bg-gray-200 text-gray-600 font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm">
+          <button onClick={handleClearAll} className="flex-1 py-5 bg-gray-500 text-white font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm">
             <Trash2 size={20} /> {t.clearAll}
           </button>
           <button onClick={() => setIsShareModalOpen(true)} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${viewMode === 'sales' ? 'bg-sky-500 shadow-sky-100' : 'bg-coffee-500 shadow-coffee-100'}`}>
@@ -520,14 +562,14 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="p-8 bg-black rounded-[2.5rem] text-center">
+            <div className="p-8 bg-gray-800 rounded-[2.5rem] text-center">
                <div className="grid grid-cols-2 gap-3">
                   <button onClick={() => {
                     const blob = new Blob([JSON.stringify({ history, stockHistory, items, stockItems, lang, viewMode })], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a'); a.href = url; a.download = `smoothie-backup-${currentDate}.json`; a.click();
-                  }} className="py-4 bg-white/10 text-white font-black rounded-2xl border border-white/10 hover:bg-white/20 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Download size={16}/> {t.downloadBackup}</button>
-                  <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-white/10 text-white font-black rounded-2xl border border-white/10 hover:bg-white/20 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Upload size={16}/> {t.uploadBackup}</button>
+                  }} className="py-4 bg-lemongreen-400 text-black font-black rounded-2xl border-none hover:bg-lemongreen-500 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Download size={16}/> {t.downloadBackup}</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-sky-500 text-white font-black rounded-2xl border-none hover:bg-sky-600 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Upload size={16}/> {t.uploadBackup}</button>
                   <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
