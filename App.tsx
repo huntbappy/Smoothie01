@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Settings, Share2, Trash2, Globe, Calendar, X, Save, Plus, Trash, 
   FileText, MessageCircle, Send, Copy, Wallet, ShoppingBag, 
-  Receipt, Download, Upload, Lock, Layers, LayoutGrid
+  Receipt, Lock, Layers, LayoutGrid, ChevronRight, Check
 } from 'lucide-react';
 import { INITIAL_ITEMS, STOCK_ITEMS, TRANSLATIONS } from './constants';
 import { ItemConfig, StockItemConfig, Language, DayData, ViewMode, MonthStockData } from './types';
@@ -32,9 +32,8 @@ const App: React.FC = () => {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isViewPickerOpen, setIsViewPickerOpen] = useState(false);
   const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | null>(null);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => localStorage.setItem('lang', lang), [lang]);
   useEffect(() => localStorage.setItem('viewMode', viewMode), [viewMode]);
@@ -487,20 +486,21 @@ const App: React.FC = () => {
           <div className="flex-1 p-6 overflow-y-auto space-y-8 custom-scrollbar pb-32">
             <div className="space-y-4">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.viewMode}</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setViewMode('sales')}
-                  className={`py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all ${viewMode === 'sales' ? 'bg-sky-500 text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}
-                >
-                  <ShoppingBag size={18} /> {t.dailySales}
-                </button>
-                <button 
-                  onClick={() => setViewMode('stock')}
-                  className={`py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all ${viewMode === 'stock' ? 'bg-coffee-500 text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}
-                >
-                  <Layers size={18} /> {t.monthlyStock}
-                </button>
-              </div>
+              <button 
+                onClick={() => setIsViewPickerOpen(true)}
+                className={`w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 group active:scale-[0.98] transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  {viewMode === 'sales' ? <ShoppingBag className="text-sky-500" /> : <Layers className="text-coffee-500" />}
+                  <span className="font-black uppercase tracking-widest">
+                    {viewMode === 'sales' ? t.dailySales : t.monthlyStock}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400">
+                  <span className="text-[10px] font-black uppercase">{lang === 'EN' ? 'Change' : 'পরিবর্তন'}</span>
+                  <ChevronRight size={18} />
+                </div>
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -561,40 +561,43 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
-
-            <div className="p-8 bg-gray-800 rounded-[2.5rem] text-center">
-               <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => {
-                    const blob = new Blob([JSON.stringify({ history, stockHistory, items, stockItems, lang, viewMode })], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = `smoothie-backup-${currentDate}.json`; a.click();
-                  }} className="py-4 bg-lemongreen-400 text-black font-black rounded-2xl border-none hover:bg-lemongreen-500 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Download size={16}/> {t.downloadBackup}</button>
-                  <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-sky-500 text-white font-black rounded-2xl border-none hover:bg-sky-600 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-widest"><Upload size={16}/> {t.uploadBackup}</button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const r = new FileReader();
-                    r.onload = (ev) => {
-                      try {
-                        const d = JSON.parse(ev.target?.result as string);
-                        if(d.history) setHistory(d.history);
-                        if(d.stockHistory) setStockHistory(d.stockHistory);
-                        if(d.items) setItems(d.items);
-                        if(d.stockItems) setStockItems(d.stockItems);
-                        if(d.viewMode) setViewMode(d.viewMode);
-                        alert(t.importSuccess);
-                      } catch { alert(t.importError); }
-                    };
-                    r.readAsText(file);
-                  }} />
-               </div>
-            </div>
           </div>
 
           <div className="p-6 bg-white border-t border-gray-50">
              <button onClick={() => setIsSettingsOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}>
-               <Save size={20} /> {t.save}
+               <Check size={20} /> {lang === 'EN' ? 'DONE' : 'সম্পন্ন'}
              </button>
+          </div>
+        </div>
+      )}
+
+      {isViewPickerOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black uppercase tracking-tight text-center mb-8">{t.viewMode}</h3>
+            <div className="space-y-4">
+              <button 
+                onClick={() => { setViewMode('sales'); setIsViewPickerOpen(false); }}
+                className={`w-full p-6 rounded-[2rem] flex items-center gap-4 transition-all ${viewMode === 'sales' ? 'bg-sky-500 text-white shadow-xl shadow-sky-100' : 'bg-gray-50 text-gray-400'}`}
+              >
+                <div className={`p-3 rounded-2xl ${viewMode === 'sales' ? 'bg-white/20' : 'bg-white'}`}><ShoppingBag size={24} /></div>
+                <div className="text-left">
+                  <p className="font-black uppercase tracking-widest">{t.dailySales}</p>
+                  <p className={`text-[10px] ${viewMode === 'sales' ? 'text-white/70' : 'text-gray-400'}`}>Daily revenue & tracking</p>
+                </div>
+              </button>
+              <button 
+                onClick={() => { setViewMode('stock'); setIsViewPickerOpen(false); }}
+                className={`w-full p-6 rounded-[2rem] flex items-center gap-4 transition-all ${viewMode === 'stock' ? 'bg-coffee-500 text-white shadow-xl shadow-coffee-100' : 'bg-gray-50 text-gray-400'}`}
+              >
+                <div className={`p-3 rounded-2xl ${viewMode === 'stock' ? 'bg-white/20' : 'bg-white'}`}><Layers size={24} /></div>
+                <div className="text-left">
+                  <p className="font-black uppercase tracking-widest">{t.monthlyStock}</p>
+                  <p className={`text-[10px] ${viewMode === 'stock' ? 'text-white/70' : 'text-gray-400'}`}>Monthly inventory & supply</p>
+                </div>
+              </button>
+            </div>
+            <button onClick={() => setIsViewPickerOpen(false)} className="w-full mt-6 py-4 text-gray-400 font-bold uppercase tracking-widest text-xs">Cancel</button>
           </div>
         </div>
       )}
@@ -636,10 +639,10 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {/* Floating Lemon Green Accent Action Button (optional aesthetic choice) */}
+      {/* Floating Lemon Green Accent Action Button */}
       <div className="fixed bottom-6 right-6 z-40 hidden sm:block">
         <button 
-           onClick={() => setViewMode(prev => prev === 'sales' ? 'stock' : 'sales')}
+           onClick={() => setIsViewPickerOpen(true)}
            className="p-4 bg-lemongreen-400 text-black rounded-full shadow-2xl hover:bg-lemongreen-300 transition-all active:scale-90 border-2 border-black"
         >
           <Layers size={24} />
