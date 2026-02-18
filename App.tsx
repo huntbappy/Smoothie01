@@ -175,70 +175,83 @@ const App: React.FC = () => {
 
   const generateSummaryText = () => {
     if (viewMode === 'sales') {
-      let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
-      let hasEntries = false;
-      
+      let text = `━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `       *${t.title} - ${t.dailySales}*\n`;
+      text += `       📅 ${formattedDisplayDate}\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      // Table Header
+      text += `*ITEM* | *250ML* | *350ML* | *TAKA*\n`;
+      text += `------------------------------------\n`;
+
+      let hasSales = false;
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
-          hasEntries = true;
-          text += `${item.icon || '🥤'} *${lang === 'BN' ? item.nameBN : item.name}*\n`;
-          if (item.q250 > 0) text += `   • 250ml: ${item.q250}\n`;
-          if (item.q350 > 0) text += `   • 350ml: ${item.q350}\n`;
-          text += `   *Subtotal: ${t.taka}${item.itemTotal}*\n\n`;
+          hasSales = true;
+          const name = lang === 'BN' ? item.nameBN : item.name;
+          text += `${name} | ${item.q250 || '-'} | ${item.q350 || '-'} | ${item.itemTotal}\n`;
         }
       });
-      
-      if (!hasEntries) text += `(No sales recorded yet)\n\n`;
 
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n\n`;
+      if (!hasSales) text += `(No sales recorded)\n`;
 
-      // Itemized Purchase Details
+      text += `------------------------------------\n`;
+      text += `*Total Sales:*       *${totals.grandTotal}*\n\n`;
+
+      // Item-wise Purchase Details
       if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
-        text += `🛒 *${t.purchase} Details:*\n`;
+        text += `*Purchase Details:*\n`;
         currentDayData.purchaseDetails.forEach(p => {
-          if (p.amount > 0) text += `   • ${p.description || '(no desc)'}: ${t.taka}${p.amount}\n`;
+          if (p.amount > 0) {
+            text += `• ${p.description || '(Misc)'}: ${p.amount}\n`;
+          }
         });
-        text += `   *Total ${t.purchase}: ${t.taka}${currentDayData.purchase}*\n\n`;
-      } else {
-        text += `📥 *${t.purchase}: ${t.taka}${currentDayData.purchase}*\n`;
+        text += `*Total Purchase:*   *${currentDayData.purchase}*\n\n`;
+      } else if (currentDayData.purchase > 0) {
+        text += `*Total Purchase:*   *${currentDayData.purchase}*\n\n`;
       }
 
-      // Itemized Expense Details
+      // Item-wise Expense Details
       if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
-        text += `💸 *${t.expense} Details:*\n`;
+        text += `*Office Expense Details:*\n`;
         currentDayData.expenseDetails.forEach(e => {
-          if (e.amount > 0) text += `   • ${e.description || '(no desc)'}: ${t.taka}${e.amount}\n`;
+          if (e.amount > 0) {
+            text += `• ${e.description || '(Misc)'}: ${e.amount}\n`;
+          }
         });
-        text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
-      } else {
-        text += `💸 *${t.expense}: ${t.taka}${currentDayData.expense}*\n`;
+        text += `*Total Expense:*    *${currentDayData.expense}*\n\n`;
+      } else if (currentDayData.expense > 0) {
+        text += `*Total Expense:*    *${currentDayData.expense}*\n\n`;
       }
 
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
-      text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
-      text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
-      
+      text += `━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `*Cash in Hand:*      *${cashInHand}*\n`;
+      text += `*Prev Balance:*      *${currentDayData.previousBalance}*\n`;
+      text += `*Total Balance:*     *${totalBalance}*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━\n`;
+
       if (currentDayData.notes?.trim()) {
-        text += `\n📝 *${t.notes}:*\n${currentDayData.notes}\n`;
+        text += `\n📝 *Notes:* ${currentDayData.notes}\n`;
       }
       return text;
     } else {
       let text = `📦 *${t.title} - ${t.monthlyStock}*\n📅 ${formattedDisplayDate}\n\n`;
+      text += `*ITEM* | *QTY* | *RATE* | *TOTAL*\n`;
+      text += `------------------------------------\n`;
       let hasEntries = false;
 
       stockTotals.stockItemsWithTotals.forEach(item => {
         if (item.itemTotal > 0) {
           hasEntries = true;
-          text += `🛒 *${lang === 'BN' ? item.nameBN : item.name}*: ${item.qty} x ${item.taka} = ${t.taka}${item.itemTotal}\n`;
+          const name = lang === 'BN' ? item.nameBN : item.name;
+          text += `${name} | ${item.qty} | ${item.taka} | ${item.itemTotal}\n`;
         }
       });
 
-      if (!hasEntries) text += `(No stock recorded for this month)\n\n`;
+      if (!hasEntries) text += `(No stock recorded)\n`;
 
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💎 *${t.grandTotal}: ${t.taka}${stockTotals.grandTotal}*\n`;
+      text += `------------------------------------\n`;
+      text += `*Grand Total:* *${stockTotals.grandTotal}*\n`;
       return text;
     }
   };
