@@ -1,3 +1,4 @@
+
 import { ItemConfig, StockItemConfig } from './types';
 
 export const INITIAL_ITEMS: ItemConfig[] = [
@@ -97,7 +98,7 @@ export const TRANSLATIONS = {
     shareSalesTitle: 'Share Sales Summary',
     shareStockTitle: 'Share Stock Summary',
     securityPin: 'Security PIN',
-    cloudSync: 'Google or Cloud Sync',
+    cloudSync: 'Cloud Synchronization',
     manageProducts: 'Manage Products',
     enterPin: 'Enter Security PIN',
     incorrectPin: 'Incorrect PIN. Try again.',
@@ -112,6 +113,8 @@ export const TRANSLATIONS = {
     confirmPin: 'Confirm PIN',
     pinMismatch: 'New PINs do not match.',
     pinSuccess: 'PIN changed successfully!',
+    messenger: 'Messenger',
+    copyText: 'Copy Text',
   },
   BN: {
     title: 'স্মুদি বার',
@@ -149,7 +152,7 @@ export const TRANSLATIONS = {
     shareSalesTitle: 'বিক্রয় রিপোর্ট শেয়ার',
     shareStockTitle: 'স্টক রিপোর্ট শেয়ার',
     securityPin: 'সিকিউরিটি পিন',
-    cloudSync: 'গুগল অথবা ক্লাউড সিনক্রোনাইজেশন',
+    cloudSync: 'ক্লাউড সিনক্রোনাইজেশন',
     manageProducts: 'প্রোডাক্ট ম্যানেজমেন্ট',
     enterPin: 'সিকিউরিটি পিন দিন',
     incorrectPin: 'ভুল পিন। আবার চেষ্টা করুন।',
@@ -164,5 +167,7 @@ export const TRANSLATIONS = {
     confirmPin: 'পিন নিশ্চিত করুন',
     pinMismatch: 'নতুন পিন মিলছে না।',
     pinSuccess: 'পিন সফলভাবে পরিবর্তিত হয়েছে!',
+    messenger: 'মেসেঞ্জার',
+    copyText: 'টেক্সট কপি',
   }
 };

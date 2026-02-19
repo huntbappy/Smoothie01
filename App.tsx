@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Settings, Share2, Trash2, Globe, Calendar, X, Save, Plus, Trash, 
   FileText, MessageCircle, Send, Copy, Wallet, ShoppingBag, 
-  Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft
+  Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft,
+  Facebook
 } from 'lucide-react';
 import { INITIAL_ITEMS, STOCK_ITEMS, TRANSLATIONS } from './constants';
 import { ItemConfig, StockItemConfig, Language, DayData, ViewMode, MonthStockData } from './types';
@@ -33,7 +35,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
-  // PIN State
+  // PIN State - Default is 0000
   const [securityPin, setSecurityPin] = useState(() => localStorage.getItem('security_pin') || '0000');
   
   // Cloud Sync Toggle State (Defaults to true/ON)
@@ -209,7 +211,7 @@ const App: React.FC = () => {
       } else if (pinForm.new !== pinForm.confirm) {
         setChangePinError(t.pinMismatch);
       } else {
-        setChangePinError('PIN must be 4 digits.');
+        setChangePinError(lang === 'BN' ? 'পিন অবশ্যই ৪ সংখ্যার হতে হবে।' : 'PIN must be 4 digits.');
       }
     }
   };
@@ -245,6 +247,9 @@ const App: React.FC = () => {
     if (!window.confirm(confirmMsg)) return;
     
     if (viewMode === 'sales') {
+      // Calculate current total balance before clearing
+      const balanceToForward = totalBalance;
+      
       updateDayData({
         quantities: {},
         purchase: 0,
@@ -252,7 +257,8 @@ const App: React.FC = () => {
         purchaseDetails: [],
         expenseDetails: [],
         notes: '',
-        isSynced: false
+        isSynced: false,
+        previousBalance: balanceToForward // Carry over Total Balance to Previous Balance
       });
     } else {
       setStockHistory(prev => ({
@@ -290,8 +296,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleMessengerShare = () => {
+    const text = generateSummaryText();
+    // Using Navigator Share API for native Messenger support on mobile
+    if (navigator.share) {
+      navigator.share({
+        title: `${t.title} - ${formattedDisplayDate}`,
+        text: text,
+      }).catch(() => {
+        navigator.clipboard.writeText(text);
+        alert(lang === 'BN' ? 'টেক্সট কপি করা হয়েছে!' : 'Text copied to clipboard!');
+      });
+    } else {
+      navigator.clipboard.writeText(text);
+      alert(lang === 'BN' ? 'মেসেঞ্জারে শেয়ার করার জন্য টেক্সট কপি করা হয়েছে!' : 'Text copied for sharing to Messenger!');
+    }
+    setIsShareModalOpen(false);
+  };
+
   return (
     <div className="max-w-xl mx-auto bg-white min-h-screen shadow-2xl flex flex-col relative overflow-hidden text-black pb-[env(safe-area-inset-bottom)]">
+      {/* Header */}
       <header className={`sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 pt-[calc(1rem+env(safe-area-inset-top))]`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -337,6 +362,7 @@ const App: React.FC = () => {
         )}
       </header>
 
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto pt-6 px-4 custom-scrollbar">
         {viewMode === 'sales' ? (
           <>
@@ -346,6 +372,7 @@ const App: React.FC = () => {
               <div className="col-span-2 text-center">{t.q350}</div>
               <div className="col-span-3 text-right">{t.total}</div>
             </div>
+            
             <div className="space-y-3 mb-8">
               {totals.itemsWithTotals.map((item) => (
                 <div key={item.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border border-gray-100 transition-all ${isLocked ? 'opacity-80 grayscale-[0.3]' : 'hover:shadow-lg'}`} style={{ backgroundColor: item.color || '#f9fafb' }}>
@@ -362,10 +389,13 @@ const App: React.FC = () => {
                   <div className="col-span-2">
                     <input type="number" value={item.q350 || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateQty(item.id, 'q350', e.target.value)} className={`qty-input w-full text-center rounded-xl py-2.5 font-black text-black outline-none transition-all ${isLocked ? 'bg-gray-200/50' : 'bg-white/80 border border-gray-200/50 focus:ring-4 focus:ring-white focus:border-sky-400'}`} />
                   </div>
-                  <div className="col-span-3 text-right"><span className="text-sm font-black text-sky-600">{t.taka}{item.itemTotal}</span></div>
+                  <div className="col-span-3 text-right">
+                    <span className="text-sm font-black text-sky-600">{t.taka}{item.itemTotal}</span>
+                  </div>
                 </div>
               ))}
             </div>
+
             <section className="bg-gray-50 rounded-[3rem] p-6 mb-8 border border-gray-100 space-y-6">
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.totalSales}</label>
@@ -412,12 +442,6 @@ const App: React.FC = () => {
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><FileText size={14} />{t.notes}</label>
                   <textarea value={currentDayData.notes || ''} readOnly={isLocked} onChange={(e) => updateDayData({ notes: e.target.value })} placeholder="..." rows={3} className={`w-full border rounded-2xl px-5 py-4 text-sm font-medium text-black outline-none transition-all resize-none shadow-sm ${isLocked ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-200 focus:border-sky-400'}`} />
               </div>
-              {(currentDayData.isSynced || (isSyncing && isCloudSyncEnabled)) && (
-                <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-lemongreen-50 text-lemongreen-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in zoom-in-95">
-                    {isSyncing ? <Cloud size={14} className="animate-pulse" /> : <ShieldCheck size={14} />}
-                    {isSyncing ? t.syncing : t.synced}
-                </div>
-              )}
             </section>
           </>
         ) : (
@@ -442,30 +466,16 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-            <section className="bg-coffee-50 rounded-[3rem] p-6 mb-8 border border-coffee-100">
-               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-coffee-100 flex justify-between items-center">
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.grandTotal}</label>
-                    <span className="text-4xl font-black text-coffee-600 tracking-tighter">{t.taka} {stockTotals.grandTotal}</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-coffee-50 text-coffee-500"><LayoutGrid size={24} /></div>
-               </div>
-               {(currentStockData.isSynced || (isSyncing && isCloudSyncEnabled)) && (
-                <div className="mt-4 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/50 text-coffee-600 text-[10px] font-black uppercase tracking-widest border border-coffee-100">
-                    {isSyncing ? <Cloud size={14} className="animate-pulse" /> : <ShieldCheck size={14} />}
-                    {isSyncing ? t.syncing : t.synced}
-                </div>
-              )}
-            </section>
           </>
         )}
+
         <div className="flex gap-4 mb-16">
           <button onClick={handleClearAll} disabled={isLocked} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${isLocked ? 'bg-gray-300' : 'bg-gray-500'}`}><Trash2 size={20} /> {t.clearAll}</button>
           <button onClick={() => { handleCloudSync(); setIsShareModalOpen(true); }} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${viewMode === 'sales' ? 'bg-sky-500 shadow-sky-100' : 'bg-coffee-500 shadow-coffee-100'}`}><Share2 size={20} /> {t.share}</button>
         </div>
       </main>
 
-      {/* PIN Entry Modal */}
+      {/* Security Modals */}
       {isPinModalOpen && (
         <div className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
             <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 text-center">
@@ -483,7 +493,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Change PIN Modal */}
       {isChangePinModalOpen && (
         <div className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 text-center">
@@ -492,18 +501,18 @@ const App: React.FC = () => {
             
             <div className="space-y-4 mb-8">
               {changePinStep === 'verify' ? (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.oldPin}</label>
+                <div className="space-y-2 text-left">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-2">{t.oldPin}</label>
                   <input type="password" maxLength={4} value={pinForm.old} onChange={(e) => setPinForm({...pinForm, old: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.newPin}</label>
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-2">{t.newPin}</label>
                     <input type="password" maxLength={4} value={pinForm.new} onChange={(e) => setPinForm({...pinForm, new: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.confirmPin}</label>
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block ml-2">{t.confirmPin}</label>
                     <input type="password" maxLength={4} value={pinForm.confirm} onChange={(e) => setPinForm({...pinForm, confirm: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
                   </div>
                 </>
@@ -520,7 +529,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Settings Modal */}
+      {/* Settings Panel */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[60] bg-white animate-in slide-in-from-bottom duration-500 flex flex-col pt-[env(safe-area-inset-top)]">
           <header className="p-6 border-b border-gray-50 flex items-center justify-between">
@@ -553,8 +562,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Controls</label>
-              
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">System Controls</label>
               <button onClick={() => setIsProductManagementOpen(true)} className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]">
                 <div className="flex items-center gap-3"><LayoutGrid className="text-sky-500" /><span className="font-black uppercase tracking-widest">{t.manageProducts}</span></div>
                 <ChevronRight className="text-gray-300" size={24} />
@@ -565,21 +573,9 @@ const App: React.FC = () => {
                 <ChevronRight className="text-gray-300" size={24} />
               </button>
 
-              <button 
-                onClick={() => setIsCloudSyncEnabled(!isCloudSyncEnabled)} 
-                className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                    <Cloud className={isSyncing ? "text-sky-500 animate-bounce" : "text-sky-500"} />
-                    <span className="font-black uppercase tracking-widest">{t.cloudSync}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    {isCloudSyncEnabled ? (
-                        <ToggleRight className="text-sky-500" size={36} />
-                    ) : (
-                        <ToggleLeft className="text-gray-300" size={36} />
-                    )}
-                </div>
+              <button onClick={() => setIsCloudSyncEnabled(!isCloudSyncEnabled)} className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]">
+                <div className="flex items-center gap-3"><Cloud className={isSyncing ? "text-sky-500 animate-bounce" : "text-sky-500"} /><span className="font-black uppercase tracking-widest">{t.cloudSync}</span></div>
+                <div className="flex items-center gap-3">{isCloudSyncEnabled ? <ToggleRight className="text-sky-500" size={40} /> : <ToggleLeft className="text-gray-300" size={40} />}</div>
               </button>
             </div>
           </div>
@@ -587,38 +583,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isProductManagementOpen && (
-        <div className="fixed inset-0 z-[70] bg-white animate-in slide-in-from-bottom duration-500 flex flex-col pt-[env(safe-area-inset-top)]">
-          <header className="p-6 border-b border-gray-50 flex items-center justify-between">
-            <div className="flex items-center gap-3"><LayoutGrid className="text-sky-500" size={28} /><h2 className="text-2xl font-black text-black uppercase tracking-tight">{t.manageProducts}</h2></div>
-            <button onClick={() => setIsProductManagementOpen(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-black transition-all"><X size={24} /></button>
-          </header>
-          <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar pb-32">
-            {viewMode === 'sales' ? (
-              items.map((item, idx) => (
-                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4">
-                  <div className="flex items-center gap-3 mb-2"><span className="text-2xl">{item.icon}</span><span className="text-xs font-black text-gray-400 uppercase tracking-widest">Item #{idx+1}</span></div>
-                  <div className="grid grid-cols-2 gap-3">
-                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Name (EN)</label><input type="text" value={item.name} onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" /></div>
-                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...items]; n[idx].nameBN = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" /></div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              stockItems.map((item, idx) => (
-                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Stock Name (EN)</label><input type="text" value={item.name} onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
-                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...stockItems]; n[idx].nameBN = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="p-6 bg-white border-t border-gray-50"><button onClick={() => setIsProductManagementOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}><Save size={20} /> {t.save}</button></div>
-        </div>
-      )}
-
+      {/* Detail Modals */}
       {detailModalType && (
         <DetailModal type={detailModalType} entries={detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : (currentDayData.expenseDetails || [])} onClose={() => setDetailModalType(null)} readOnly={isLocked} onSave={(entries) => {
             const total = entries.reduce((sum, e) => sum + e.amount, 0);
@@ -627,14 +592,20 @@ const App: React.FC = () => {
           }} lang={lang} />
       )}
 
+      {/* Share Selection */}
       {isShareModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-t-[3rem] sm:rounded-[3rem] p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom duration-300 pb-[calc(2rem+env(safe-area-inset-bottom))]">
             <div className="flex justify-between items-center mb-8"><h3 className={`text-2xl font-black uppercase tracking-tight ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>{viewMode === 'sales' ? t.shareSalesTitle : t.shareStockTitle}</h3><button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-full"><X size={20} /></button></div>
             <div className="grid grid-cols-3 gap-6">
-              <button onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(generateSummaryText())}`, '_blank'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><MessageCircle size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">WhatsApp</span></button>
-              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert('Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Copy size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Copy Text</span></button>
-              <button onClick={() => { setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group opacity-50"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Send size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Magic Link</span></button>
+              <button onClick={handleMessengerShare} className="flex flex-col items-center gap-3 group">
+                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>
+                  <Facebook size={32} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.messenger}</span>
+              </button>
+              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert(lang === 'BN' ? 'টেক্সট কপি করা হয়েছে!' : 'Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Copy size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.copyText}</span></button>
+              <button onClick={() => setIsShareModalOpen(false)} className="flex flex-col items-center gap-3 group opacity-50"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Send size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Magic Link</span></button>
             </div>
           </div>
         </div>
