@@ -8,36 +8,42 @@ interface DetailModalProps {
   onClose: () => void;
   onSave: (entries: DetailEntry[]) => void;
   lang: 'EN' | 'BN';
+  readOnly?: boolean;
 }
 
-const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSave, lang }) => {
+const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSave, lang, readOnly = false }) => {
   const [localEntries, setLocalEntries] = React.useState<DetailEntry[]>(
     entries.length > 0 ? entries : [{ id: '1', description: '', amount: 0 }]
   );
 
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the first input field when the modal opens
   useEffect(() => {
-    const timer = setTimeout(() => {
-      firstInputRef.current?.focus();
-    }, 100); // Small delay to ensure modal animation doesn't interfere with focus
-    return () => clearTimeout(timer);
-  }, []);
+    if (!readOnly) {
+      const timer = setTimeout(() => {
+        firstInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [readOnly]);
 
   const addRow = () => {
+    if (readOnly) return;
     setLocalEntries([...localEntries, { id: Date.now().toString(), description: '', amount: 0 }]);
   };
 
   const removeRow = (id: string) => {
+    if (readOnly) return;
     setLocalEntries(localEntries.filter(e => e.id !== id));
   };
 
   const updateRow = (id: string, field: keyof DetailEntry, value: any) => {
+    if (readOnly) return;
     setLocalEntries(localEntries.map(e => e.id === id ? { ...e, [field]: value } : e));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       const inputs = Array.from(document.querySelectorAll('.detail-input')) as HTMLInputElement[];
@@ -74,36 +80,44 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
                 ref={index === 0 ? firstInputRef : null}
                 type="text"
                 value={entry.description}
+                readOnly={readOnly}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => updateRow(entry.id, 'description', e.target.value)}
                 placeholder={lang === 'EN' ? 'Description' : 'বিবরণ'}
-                className="detail-input flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 font-medium outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-400 transition-all text-black"
+                className={`detail-input flex-1 border border-gray-200 rounded-2xl px-4 py-3 font-medium outline-none transition-all text-black ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50 focus:ring-4 focus:ring-sky-100 focus:border-sky-400'}`}
               />
               <input
                 type="number"
                 value={entry.amount || ''}
+                readOnly={readOnly}
                 onKeyDown={handleKeyDown}
                 onChange={(e) => updateRow(entry.id, 'amount', parseFloat(e.target.value) || 0)}
                 placeholder="0"
-                className="detail-input w-24 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 font-black text-center outline-none focus:ring-4 focus:ring-sky-100 focus:border-sky-400 transition-all text-black"
+                className={`detail-input w-24 border border-gray-200 rounded-2xl px-4 py-3 font-black text-center outline-none transition-all text-black ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50 focus:ring-4 focus:ring-sky-100 focus:border-sky-400'}`}
               />
-              <button onClick={() => removeRow(entry.id)} className="p-3 text-gray-300 hover:text-red-500 transition-colors">
-                <Trash2 size={20} />
-              </button>
+              {!readOnly && (
+                <button onClick={() => removeRow(entry.id)} className="p-3 text-gray-300 hover:text-red-500 transition-colors">
+                  <Trash2 size={20} />
+                </button>
+              )}
             </div>
           ))}
-          <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold hover:border-lemongreen-300 hover:text-lemongreen-500 transition-all flex items-center justify-center gap-2">
-            <Plus size={20} /> {lang === 'EN' ? 'Add Row' : 'নতুন রো'}
-          </button>
+          {!readOnly && (
+            <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold hover:border-lemongreen-300 hover:text-lemongreen-500 transition-all flex items-center justify-center gap-2">
+              <Plus size={20} /> {lang === 'EN' ? 'Add Row' : 'নতুন রো'}
+            </button>
+          )}
         </div>
 
         <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
           <button onClick={onClose} className="flex-1 py-4 bg-white border border-gray-200 text-black font-black rounded-2xl hover:bg-gray-100 transition-all">
-            {lang === 'EN' ? 'Cancel' : 'বাতিল'}
+            {readOnly ? (lang === 'EN' ? 'Close' : 'বন্ধ করুন') : (lang === 'EN' ? 'Cancel' : 'বাতিল')}
           </button>
-          <button onClick={() => onSave(localEntries)} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-lg shadow-sky-100 hover:bg-sky-600 transition-all flex items-center justify-center gap-2">
-            <Save size={20} /> {lang === 'EN' ? 'Save' : 'সেভ করুন'}
-          </button>
+          {!readOnly && (
+            <button onClick={() => onSave(localEntries)} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-lg shadow-sky-100 hover:bg-sky-600 transition-all flex items-center justify-center gap-2">
+              <Save size={20} /> {lang === 'EN' ? 'Save' : 'সেভ করুন'}
+            </button>
+          )}
         </div>
       </div>
     </div>

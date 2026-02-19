@@ -1,14 +1,14 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIAnalysisResponse, ItemConfig, DayData } from "../types";
 
-// Fix: Moved GoogleGenAI instantiation inside the function to ensure the latest API key is used
+// Fixed: Correctly using GoogleGenAI as per guidelines and utilizing gemini-3-pro-preview for data analysis
 export async function analyzeDailySales(
   items: ItemConfig[],
   dayData: DayData,
   lang: 'EN' | 'BN'
 ): Promise<AIAnalysisResponse> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-flash-preview";
   
   const salesContext = items.map(item => {
     const q = dayData.quantities[item.id] || { q250: 0, q350: 0 };
@@ -31,7 +31,7 @@ export async function analyzeDailySales(
 
   try {
     const response = await ai.models.generateContent({
-      model,
+      model: 'gemini-3-pro-preview', // Complex Text Tasks for business reasoning
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -47,7 +47,7 @@ export async function analyzeDailySales(
       },
     });
 
-    // Fix: Access response.text property directly and ensure it's not undefined
+    // Fixed: Accessed .text property directly as per SDK requirements (not a method call)
     const text = response.text;
     if (text) {
       return JSON.parse(text.trim()) as AIAnalysisResponse;

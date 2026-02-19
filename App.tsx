@@ -2,12 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Settings, Share2, Trash2, Globe, Calendar, X, Save, Plus, Trash, 
   FileText, MessageCircle, Send, Copy, Wallet, ShoppingBag, 
-  Receipt, Lock, Layers, LayoutGrid, ChevronRight, Check
+  Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft
 } from 'lucide-react';
 import { INITIAL_ITEMS, STOCK_ITEMS, TRANSLATIONS } from './constants';
 import { ItemConfig, StockItemConfig, Language, DayData, ViewMode, MonthStockData } from './types';
 import SmoothieLogo from './components/SmoothieLogo';
 import DetailModal from './components/DetailModal';
+
+// Mock Cloud Storage Key
+const CLOUD_MOCK_KEY = 'cloud_drive_history';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'EN');
@@ -30,10 +33,33 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
+  // PIN State
+  const [securityPin, setSecurityPin] = useState(() => localStorage.getItem('security_pin') || '0000');
+  
+  // Cloud Sync Toggle State (Defaults to true/ON)
+  const [isCloudSyncEnabled, setIsCloudSyncEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('isCloudSyncEnabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  // UI States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isViewPickerOpen, setIsViewPickerOpen] = useState(false);
+  const [isProductManagementOpen, setIsProductManagementOpen] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isChangePinModalOpen, setIsChangePinModalOpen] = useState(false);
+  
+  const [pinInput, setPinInput] = useState('');
+  const [isUnlockedByPin, setIsUnlockedByPin] = useState(false);
+  const [pinError, setPinError] = useState(false);
+  
+  // Change PIN states
+  const [changePinStep, setChangePinStep] = useState<'verify' | 'new'>('verify');
+  const [pinForm, setPinForm] = useState({ old: '', new: '', confirm: '' });
+  const [changePinError, setChangePinError] = useState('');
+
   const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => localStorage.setItem('lang', lang), [lang]);
   useEffect(() => localStorage.setItem('viewMode', viewMode), [viewMode]);
@@ -41,15 +67,25 @@ const App: React.FC = () => {
   useEffect(() => localStorage.setItem('stockItems', JSON.stringify(stockItems)), [stockItems]);
   useEffect(() => localStorage.setItem('history', JSON.stringify(history)), [history]);
   useEffect(() => localStorage.setItem('stockHistory', JSON.stringify(stockHistory)), [stockHistory]);
+  useEffect(() => localStorage.setItem('security_pin', securityPin), [securityPin]);
+  useEffect(() => localStorage.setItem('isCloudSyncEnabled', JSON.stringify(isCloudSyncEnabled)), [isCloudSyncEnabled]);
 
   const t = TRANSLATIONS[lang];
-  const currentMonthKey = currentDate.substring(0, 7); // YYYY-MM
+  const currentMonthKey = currentDate.substring(0, 7);
+  const today = new Date().toISOString().split('T')[0];
   
+  const isHistorical = currentDate < today;
+  const isLocked = isHistorical && !isUnlockedByPin;
+
+  useEffect(() => {
+    setIsUnlockedByPin(false);
+  }, [currentDate]);
+
   const currentDayData: DayData = history[currentDate] || { 
-    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: ''
+    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '', isSynced: false
   };
 
-  const currentStockData: MonthStockData = stockHistory[currentMonthKey] || { items: {} };
+  const currentStockData: MonthStockData = stockHistory[currentMonthKey] || { items: {}, isSynced: false };
 
   const formattedDisplayDate = useMemo(() => {
     const dateObj = new Date(currentDate);
@@ -64,6 +100,7 @@ const App: React.FC = () => {
   }, [currentDate, lang, viewMode]);
 
   const updateDayData = (updates: Partial<DayData>) => {
+    if (isLocked) return;
     setHistory(prev => ({
       ...prev,
       [currentDate]: {
@@ -74,6 +111,7 @@ const App: React.FC = () => {
   };
 
   const updateStockData = (itemId: string, field: 'qty' | 'taka', value: string) => {
+    if (isLocked) return;
     const num = parseFloat(value) || 0;
     setStockHistory(prev => ({
       ...prev,
@@ -90,6 +128,7 @@ const App: React.FC = () => {
   };
 
   const updateQty = (itemId: string, size: 'q250' | 'q350', val: string) => {
+    if (isLocked) return;
     const num = parseInt(val) || 0;
     const currentQties = currentDayData.quantities || {};
     updateDayData({
@@ -141,34 +180,85 @@ const App: React.FC = () => {
   const cashInHand = totals.grandTotal - (currentDayData.purchase || 0) - (currentDayData.expense || 0);
   const totalBalance = cashInHand + (currentDayData.previousBalance || 0);
 
-  const handleClearAll = () => {
-    if (viewMode === 'sales') {
-      const confirmationMsg = lang === 'BN' 
-        ? "আপনি কি নিশ্চিত যে আপনি আজকের সব ডাটা মুছে ফেলতে চান? ব্যালেন্সটি 'প্রিভিয়াস ব্যালেন্স' এ জমা হয়ে যাবে।" 
-        : "Are you sure you want to clear today's data? The total balance will be forwarded to Previous Balance.";
-      
-      if(window.confirm(confirmationMsg)) {
-        const balanceToRollOver = totalBalance;
-        setHistory(prev => ({
-          ...prev,
-          [currentDate]: {
-            quantities: {},
-            purchase: 0,
-            expense: 0,
-            purchaseDetails: [],
-            expenseDetails: [],
-            notes: '',
-            previousBalance: balanceToRollOver
-          }
-        }));
+  const handlePINSubmit = () => {
+    if (pinInput === securityPin) {
+      setIsUnlockedByPin(true);
+      setIsPinModalOpen(false);
+      setPinInput('');
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
+
+  const handleChangePinSubmit = () => {
+    if (changePinStep === 'verify') {
+      if (pinForm.old === securityPin) {
+        setChangePinStep('new');
+        setChangePinError('');
+      } else {
+        setChangePinError(t.incorrectPin);
       }
     } else {
-      if(window.confirm(t.clearAll + "?")) {
-        setStockHistory(prev => ({
-          ...prev,
-          [currentMonthKey]: { items: {} }
-        }));
+      if (pinForm.new.length === 4 && pinForm.new === pinForm.confirm) {
+        setSecurityPin(pinForm.new);
+        alert(t.pinSuccess);
+        setIsChangePinModalOpen(false);
+        resetPinForm();
+      } else if (pinForm.new !== pinForm.confirm) {
+        setChangePinError(t.pinMismatch);
+      } else {
+        setChangePinError('PIN must be 4 digits.');
       }
+    }
+  };
+
+  const resetPinForm = () => {
+    setPinForm({ old: '', new: '', confirm: '' });
+    setChangePinStep('verify');
+    setChangePinError('');
+  };
+
+  const handleCloudSync = async () => {
+    if (!isCloudSyncEnabled) return;
+    setIsSyncing(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const cloudHistory = JSON.parse(localStorage.getItem(CLOUD_MOCK_KEY) || '{}');
+    if (viewMode === 'sales') {
+        cloudHistory[currentDate] = currentDayData;
+        updateDayData({ isSynced: true });
+    } else {
+        cloudHistory[currentMonthKey] = currentStockData;
+        setStockHistory(prev => ({
+            ...prev,
+            [currentMonthKey]: { ...currentStockData, isSynced: true }
+        }));
+    }
+    localStorage.setItem(CLOUD_MOCK_KEY, JSON.stringify(cloudHistory));
+    setIsSyncing(false);
+  };
+
+  const handleClearAll = () => {
+    if (isLocked) return;
+    const confirmMsg = lang === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি সব মুছতে চান?' : 'Are you sure you want to clear everything?';
+    if (!window.confirm(confirmMsg)) return;
+    
+    if (viewMode === 'sales') {
+      updateDayData({
+        quantities: {},
+        purchase: 0,
+        expense: 0,
+        purchaseDetails: [],
+        expenseDetails: [],
+        notes: '',
+        isSynced: false
+      });
+    } else {
+      setStockHistory(prev => ({
+        ...prev,
+        [currentMonthKey]: { items: {}, isSynced: false }
+      }));
     }
   };
 
@@ -176,7 +266,6 @@ const App: React.FC = () => {
     if (viewMode === 'sales') {
       let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
       let hasEntries = false;
-      
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
           hasEntries = true;
@@ -186,65 +275,23 @@ const App: React.FC = () => {
           text += `   *Subtotal: ${t.taka}${item.itemTotal}*\n\n`;
         }
       });
-      
       if (!hasEntries) text += `(No sales recorded yet)\n\n`;
-
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n\n`;
-
-      // Itemized Purchase Details
-      if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
-        text += `🛒 *${t.purchase} Details:*\n`;
-        currentDayData.purchaseDetails.forEach(p => {
-          if (p.amount > 0) text += `   • ${p.description || '(Misc)'}: ${t.taka}${p.amount}\n`;
-        });
-        text += `   *Total ${t.purchase}: ${t.taka}${currentDayData.purchase}*\n\n`;
-      } else {
-        text += `📥 *${t.purchase}: ${t.taka}${currentDayData.purchase}*\n`;
-      }
-
-      // Itemized Expense Details
-      if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
-        text += `💸 *${t.expense} Details:*\n`;
-        currentDayData.expenseDetails.forEach(e => {
-          if (e.amount > 0) text += `   • ${e.description || '(Misc)'}: ${t.taka}${e.amount}\n`;
-        });
-        text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
-      } else {
-        text += `🧾 *${t.expense}: ${t.taka}${currentDayData.expense}*\n`;
-      }
-
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
-      text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
-      text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
-      
-      if (currentDayData.notes?.trim()) {
-        text += `\n📝 *${t.notes}:*\n${currentDayData.notes}\n`;
-      }
+      text += `━━━━━━━━━━━━━━━\n💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n\n━━━━━━━━━━━━━━━\n💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
       return text;
     } else {
       let text = `📦 *${t.title} - ${t.monthlyStock}*\n📅 ${formattedDisplayDate}\n\n`;
-      let hasEntries = false;
-
       stockTotals.stockItemsWithTotals.forEach(item => {
         if (item.itemTotal > 0) {
-          hasEntries = true;
           text += `🛒 *${lang === 'BN' ? item.nameBN : item.name}*: ${item.qty} x ${item.taka} = ${t.taka}${item.itemTotal}\n`;
         }
       });
-
-      if (!hasEntries) text += `(No stock recorded for this month)\n\n`;
-
-      text += `━━━━━━━━━━━━━━━\n`;
-      text += `💎 *${t.grandTotal}: ${t.taka}${stockTotals.grandTotal}*\n`;
+      text += `━━━━━━━━━━━━━━━\n💎 *${t.grandTotal}: ${t.taka}${stockTotals.grandTotal}*\n`;
       return text;
     }
   };
 
   return (
     <div className="max-w-xl mx-auto bg-white min-h-screen shadow-2xl flex flex-col relative overflow-hidden text-black pb-[env(safe-area-inset-bottom)]">
-      {/* Header */}
       <header className={`sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 pt-[calc(1rem+env(safe-area-inset-top))]`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -256,9 +303,25 @@ const App: React.FC = () => {
                 </p>
              </div>
           </div>
-          <button onClick={() => setIsSettingsOpen(true)} className="p-3 bg-gray-50 text-gray-400 hover:text-sky-500 rounded-2xl transition-all">
-            <Settings size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            {isCloudSyncEnabled && (
+                <div className="flex items-center gap-1 bg-lemongreen-50 text-lemongreen-600 px-3 py-1.5 rounded-full border border-lemongreen-100 animate-in fade-in zoom-in-95 duration-300">
+                    <Cloud size={14} className={isSyncing ? "animate-pulse" : ""} />
+                    <span className="text-[9px] font-black uppercase tracking-tight">{isSyncing ? 'Syncing' : 'Cloud On'}</span>
+                </div>
+            )}
+            {isHistorical && (
+              <button 
+                onClick={() => isLocked ? setIsPinModalOpen(true) : setIsUnlockedByPin(false)}
+                className={`p-3 rounded-2xl transition-all border ${isLocked ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-500 border-green-100'}`}
+              >
+                {isLocked ? <Lock size={20} /> : <Unlock size={20} />}
+              </button>
+            )}
+            <button onClick={() => setIsSettingsOpen(true)} className="p-3 bg-gray-50 text-gray-400 hover:text-sky-500 rounded-2xl transition-all">
+              <Settings size={24} />
+            </button>
+          </div>
         </div>
         
         <div className={`flex items-center justify-center gap-3 px-6 py-4 rounded-[2rem] cursor-pointer transition-all relative shadow-xl ${viewMode === 'sales' ? 'bg-sky-500 hover:bg-sky-600 shadow-sky-100' : 'bg-coffee-500 hover:bg-coffee-600 shadow-coffee-100'}`}>
@@ -266,9 +329,14 @@ const App: React.FC = () => {
           <span className="text-sm sm:text-lg font-black text-white uppercase tracking-tight">{formattedDisplayDate}</span>
           <input type="date" value={currentDate} onChange={(e) => { setCurrentDate(e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
         </div>
+        
+        {isLocked && (
+            <div className="mt-2 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-50/50 py-1 rounded-full border border-red-100">
+                <AlertCircle size={10} /> {t.lockedMsg}
+            </div>
+        )}
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto pt-6 px-4 custom-scrollbar">
         {viewMode === 'sales' ? (
           <>
@@ -278,14 +346,9 @@ const App: React.FC = () => {
               <div className="col-span-2 text-center">{t.q350}</div>
               <div className="col-span-3 text-right">{t.total}</div>
             </div>
-            
             <div className="space-y-3 mb-8">
               {totals.itemsWithTotals.map((item) => (
-                <div 
-                  key={item.id} 
-                  className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border border-gray-100 transition-all hover:shadow-lg"
-                  style={{ backgroundColor: item.color || '#f9fafb' }}
-                >
+                <div key={item.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border border-gray-100 transition-all ${isLocked ? 'opacity-80 grayscale-[0.3]' : 'hover:shadow-lg'}`} style={{ backgroundColor: item.color || '#f9fafb' }}>
                   <div className="col-span-5 flex items-center gap-2">
                     <span className="text-lg">{item.icon || '🥤'}</span>
                     <div>
@@ -294,34 +357,15 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <input 
-                      type="number" 
-                      value={item.q250 || ''} 
-                      placeholder="0" 
-                      onKeyDown={handleKeyDown}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => updateQty(item.id, 'q250', e.target.value)} 
-                      className="qty-input w-full text-center bg-white/80 border border-gray-200/50 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-white focus:border-sky-400 outline-none transition-all" 
-                    />
+                    <input type="number" value={item.q250 || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateQty(item.id, 'q250', e.target.value)} className={`qty-input w-full text-center rounded-xl py-2.5 font-black text-black outline-none transition-all ${isLocked ? 'bg-gray-200/50' : 'bg-white/80 border border-gray-200/50 focus:ring-4 focus:ring-white focus:border-sky-400'}`} />
                   </div>
                   <div className="col-span-2">
-                    <input 
-                      type="number" 
-                      value={item.q350 || ''} 
-                      placeholder="0" 
-                      onKeyDown={handleKeyDown}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => updateQty(item.id, 'q350', e.target.value)} 
-                      className="qty-input w-full text-center bg-white/80 border border-gray-200/50 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-white focus:border-sky-400 outline-none transition-all" 
-                    />
+                    <input type="number" value={item.q350 || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateQty(item.id, 'q350', e.target.value)} className={`qty-input w-full text-center rounded-xl py-2.5 font-black text-black outline-none transition-all ${isLocked ? 'bg-gray-200/50' : 'bg-white/80 border border-gray-200/50 focus:ring-4 focus:ring-white focus:border-sky-400'}`} />
                   </div>
-                  <div className="col-span-3 text-right">
-                    <span className="text-sm font-black text-sky-600">{t.taka}{item.itemTotal}</span>
-                  </div>
+                  <div className="col-span-3 text-right"><span className="text-sm font-black text-sky-600">{t.taka}{item.itemTotal}</span></div>
                 </div>
               ))}
             </div>
-
             <section className="bg-gray-50 rounded-[3rem] p-6 mb-8 border border-gray-100 space-y-6">
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.totalSales}</label>
@@ -330,7 +374,6 @@ const App: React.FC = () => {
                     <span className="text-[10px] font-black text-gray-300 uppercase mb-2">Revenue</span>
                   </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <button onClick={() => setDetailModalType('purchase')} className="bg-white p-5 rounded-[2rem] border border-gray-100 hover:border-sky-200 transition-all text-left group">
                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><ShoppingBag size={10}/> {t.purchase}</label>
@@ -341,50 +384,40 @@ const App: React.FC = () => {
                   <span className="text-2xl font-black text-black">{t.taka} {currentDayData.expense}</span>
                 </button>
               </div>
-
               <div className="bg-white p-6 rounded-[2rem] border border-gray-100 flex justify-between items-center relative overflow-hidden">
                   <div className={`absolute left-0 top-0 bottom-0 w-2 ${cashInHand < 0 ? 'bg-gray-400' : 'bg-sky-500'}`} />
                   <div>
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">{t.cashInHand}</label>
                     <span className={`text-3xl font-black ${cashInHand < 0 ? 'text-gray-400' : 'text-sky-600'}`}>{t.taka} {cashInHand}</span>
                   </div>
-                  <div className={`p-4 rounded-2xl ${cashInHand < 0 ? 'bg-gray-50 text-gray-400' : 'bg-sky-50 text-sky-500'}`}>
-                    <Wallet size={24} />
-                  </div>
+                  <div className={`p-4 rounded-2xl ${cashInHand < 0 ? 'bg-gray-50 text-gray-400' : 'bg-sky-50 text-sky-500'}`}><Wallet size={24} /></div>
               </div>
-
               <div className="bg-white p-6 rounded-[2rem] border border-gray-100 flex justify-between items-center relative overflow-hidden opacity-80">
                   <div className="absolute left-0 top-0 bottom-0 w-2 bg-gray-300" />
                   <div>
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">{t.previousBalance}</label>
                     <span className="text-3xl font-black text-gray-600">{t.taka} {currentDayData.previousBalance}</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-gray-50 text-gray-400">
-                    <Lock size={24} />
-                  </div>
+                  <div className="p-4 rounded-2xl bg-gray-50 text-gray-400"><Lock size={24} /></div>
               </div>
-
               <div className="bg-white p-6 rounded-[2rem] border border-gray-100 flex justify-between items-center relative overflow-hidden opacity-80">
                   <div className="absolute left-0 top-0 bottom-0 w-2 bg-sky-300" />
                   <div>
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">{t.totalBalance}</label>
                     <span className="text-3xl font-black text-sky-600">{t.taka} {totalBalance}</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-gray-50 text-sky-400">
-                    <Lock size={24} />
-                  </div>
+                  <div className="p-4 rounded-2xl bg-gray-50 text-sky-400"><Lock size={24} /></div>
               </div>
-
               <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><FileText size={14} />{t.notes}</label>
-                  <textarea 
-                    value={currentDayData.notes || ''} 
-                    onChange={(e) => updateDayData({ notes: e.target.value })} 
-                    placeholder="..." 
-                    rows={3} 
-                    className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-sm font-medium text-black outline-none focus:border-sky-400 transition-all resize-none shadow-sm" 
-                  />
+                  <textarea value={currentDayData.notes || ''} readOnly={isLocked} onChange={(e) => updateDayData({ notes: e.target.value })} placeholder="..." rows={3} className={`w-full border rounded-2xl px-5 py-4 text-sm font-medium text-black outline-none transition-all resize-none shadow-sm ${isLocked ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-200 focus:border-sky-400'}`} />
               </div>
+              {(currentDayData.isSynced || (isSyncing && isCloudSyncEnabled)) && (
+                <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-lemongreen-50 text-lemongreen-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in zoom-in-95">
+                    {isSyncing ? <Cloud size={14} className="animate-pulse" /> : <ShieldCheck size={14} />}
+                    {isSyncing ? t.syncing : t.synced}
+                </div>
+              )}
             </section>
           </>
         ) : (
@@ -395,259 +428,231 @@ const App: React.FC = () => {
               <div className="col-span-2 text-center">{t.rate}</div>
               <div className="col-span-3 text-right">{t.total}</div>
             </div>
-
             <div className="space-y-3 mb-8">
               {stockTotals.stockItemsWithTotals.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-3 rounded-2xl border border-gray-100 transition-all hover:bg-white hover:shadow-xl hover:shadow-gray-100">
-                  <div className="col-span-5">
-                    <p className="text-sm font-bold text-black leading-tight">{lang === 'BN' ? item.nameBN : item.name}</p>
+                <div key={item.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border border-gray-100 transition-all ${isLocked ? 'bg-gray-50 opacity-80' : 'bg-gray-50 hover:bg-white hover:shadow-xl hover:shadow-gray-100'}`}>
+                  <div className="col-span-5"><p className="text-sm font-bold text-black leading-tight">{lang === 'BN' ? item.nameBN : item.name}</p></div>
+                  <div className="col-span-2">
+                    <input type="number" value={item.qty || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateStockData(item.id, 'qty', e.target.value)} className={`qty-input w-full text-center rounded-xl py-2.5 font-black text-black outline-none transition-all ${isLocked ? 'bg-gray-200/50' : 'bg-white border border-gray-200 focus:ring-4 focus:ring-coffee-50 focus:border-coffee-400'}`} />
                   </div>
                   <div className="col-span-2">
-                    <input 
-                      type="number" 
-                      value={item.qty || ''} 
-                      placeholder="0" 
-                      onKeyDown={handleKeyDown}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => updateStockData(item.id, 'qty', e.target.value)} 
-                      className="qty-input w-full text-center bg-white border border-gray-200 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-coffee-50 focus:border-coffee-400 outline-none transition-all" 
-                    />
+                    <input type="number" value={item.taka || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateStockData(item.id, 'taka', e.target.value)} className={`qty-input w-full text-center rounded-xl py-2.5 font-black text-black outline-none transition-all ${isLocked ? 'bg-gray-200/50' : 'bg-white border border-gray-200 focus:ring-4 focus:ring-coffee-50 focus:border-coffee-400'}`} />
                   </div>
-                  <div className="col-span-2">
-                    <input 
-                      type="number" 
-                      value={item.taka || ''} 
-                      placeholder="0" 
-                      onKeyDown={handleKeyDown}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => updateStockData(item.id, 'taka', e.target.value)} 
-                      className="qty-input w-full text-center bg-white border border-gray-200 rounded-xl py-2.5 font-black text-black focus:ring-4 focus:ring-coffee-50 focus:border-coffee-400 outline-none transition-all" 
-                    />
-                  </div>
-                  <div className="col-span-3 text-right">
-                    <span className="text-sm font-black text-coffee-600">{t.taka}{item.itemTotal}</span>
-                  </div>
+                  <div className="col-span-3 text-right"><span className="text-sm font-black text-coffee-600">{t.taka}{item.itemTotal}</span></div>
                 </div>
               ))}
             </div>
-
             <section className="bg-coffee-50 rounded-[3rem] p-6 mb-8 border border-coffee-100">
                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-coffee-100 flex justify-between items-center">
                   <div>
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.grandTotal}</label>
                     <span className="text-4xl font-black text-coffee-600 tracking-tighter">{t.taka} {stockTotals.grandTotal}</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-coffee-50 text-coffee-500">
-                    <LayoutGrid size={24} />
-                  </div>
+                  <div className="p-4 rounded-2xl bg-coffee-50 text-coffee-500"><LayoutGrid size={24} /></div>
                </div>
+               {(currentStockData.isSynced || (isSyncing && isCloudSyncEnabled)) && (
+                <div className="mt-4 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/50 text-coffee-600 text-[10px] font-black uppercase tracking-widest border border-coffee-100">
+                    {isSyncing ? <Cloud size={14} className="animate-pulse" /> : <ShieldCheck size={14} />}
+                    {isSyncing ? t.syncing : t.synced}
+                </div>
+              )}
             </section>
           </>
         )}
-
         <div className="flex gap-4 mb-16">
-          <button onClick={handleClearAll} className="flex-1 py-5 bg-gray-500 text-white font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm">
-            <Trash2 size={20} /> {t.clearAll}
-          </button>
-          <button onClick={() => setIsShareModalOpen(true)} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${viewMode === 'sales' ? 'bg-sky-500 shadow-sky-100' : 'bg-coffee-500 shadow-coffee-100'}`}>
-            <Share2 size={20} /> {t.share}
-          </button>
+          <button onClick={handleClearAll} disabled={isLocked} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${isLocked ? 'bg-gray-300' : 'bg-gray-500'}`}><Trash2 size={20} /> {t.clearAll}</button>
+          <button onClick={() => { handleCloudSync(); setIsShareModalOpen(true); }} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm ${viewMode === 'sales' ? 'bg-sky-500 shadow-sky-100' : 'bg-coffee-500 shadow-coffee-100'}`}><Share2 size={20} /> {t.share}</button>
         </div>
       </main>
 
-      {/* Modals */}
-      {detailModalType && (
-        <DetailModal 
-          type={detailModalType}
-          entries={detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : (currentDayData.expenseDetails || [])}
-          onClose={() => setDetailModalType(null)}
-          onSave={(entries) => {
-            const total = entries.reduce((sum, e) => sum + e.amount, 0);
-            updateDayData({
-              [detailModalType === 'purchase' ? 'purchase' : 'expense']: total,
-              [detailModalType === 'purchase' ? 'purchaseDetails' : 'expenseDetails']: entries
-            });
-            setDetailModalType(null);
-          }}
-          lang={lang}
-        />
+      {/* PIN Entry Modal */}
+      {isPinModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+                <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6"><ShieldCheck size={32} /></div>
+                <h3 className="text-xl font-black uppercase tracking-tight mb-2">{t.enterPin}</h3>
+                <div className="flex justify-center gap-4 mb-8">
+                    <input type="password" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && handlePINSubmit()} autoFocus className={`w-32 text-center text-4xl font-black tracking-[1em] py-4 bg-gray-50 border-2 rounded-2xl focus:border-sky-400 outline-none transition-all ${pinError ? 'border-red-500 shake' : 'border-gray-100'}`} />
+                </div>
+                {pinError && <p className="text-red-500 text-[10px] font-black uppercase mb-6">{t.incorrectPin}</p>}
+                <div className="flex gap-3">
+                    <button onClick={() => { setIsPinModalOpen(false); setPinInput(''); setPinError(false); }} className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-2xl uppercase tracking-widest text-xs">Cancel</button>
+                    <button onClick={handlePINSubmit} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-lg shadow-sky-100">Unlock</button>
+                </div>
+            </div>
+        </div>
       )}
 
+      {/* Change PIN Modal */}
+      {isChangePinModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+            <div className="mx-auto w-16 h-16 bg-sky-50 text-sky-500 rounded-full flex items-center justify-center mb-6"><Key size={32} /></div>
+            <h3 className="text-xl font-black uppercase tracking-tight mb-2">{t.changePin}</h3>
+            
+            <div className="space-y-4 mb-8">
+              {changePinStep === 'verify' ? (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.oldPin}</label>
+                  <input type="password" maxLength={4} value={pinForm.old} onChange={(e) => setPinForm({...pinForm, old: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.newPin}</label>
+                    <input type="password" maxLength={4} value={pinForm.new} onChange={(e) => setPinForm({...pinForm, new: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">{t.confirmPin}</label>
+                    <input type="password" maxLength={4} value={pinForm.confirm} onChange={(e) => setPinForm({...pinForm, confirm: e.target.value.replace(/\D/g, '')})} className="w-full text-center text-2xl font-black py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-sky-400 outline-none" placeholder="****" />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {changePinError && <p className="text-red-500 text-[10px] font-black uppercase mb-6">{changePinError}</p>}
+
+            <div className="flex gap-3">
+              <button onClick={() => { setIsChangePinModalOpen(false); resetPinForm(); }} className="flex-1 py-4 bg-gray-100 text-gray-500 font-black rounded-2xl uppercase tracking-widest text-xs">Cancel</button>
+              <button onClick={handleChangePinSubmit} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-lg shadow-sky-100">{changePinStep === 'verify' ? 'Next' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[60] bg-white animate-in slide-in-from-bottom duration-500 flex flex-col pt-[env(safe-area-inset-top)]">
           <header className="p-6 border-b border-gray-50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-               <Settings className="text-sky-500" size={28} />
-               <h2 className="text-2xl font-black text-black uppercase tracking-tight">{t.settings}</h2>
-            </div>
+            <div className="flex items-center gap-3"><Settings className="text-sky-500" size={28} /><h2 className="text-2xl font-black text-black uppercase tracking-tight">{t.settings}</h2></div>
             <button onClick={() => setIsSettingsOpen(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-black transition-all"><X size={24} /></button>
           </header>
           
           <div className="flex-1 p-6 overflow-y-auto space-y-8 custom-scrollbar pb-32">
             <div className="space-y-4">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.viewMode}</label>
-              <button 
-                onClick={() => setIsViewPickerOpen(true)}
-                className={`w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 group active:scale-[0.98] transition-all`}
-              >
-                <div className="flex items-center gap-3">
-                  {viewMode === 'sales' ? <ShoppingBag className="text-sky-500" /> : <Layers className="text-coffee-500" />}
-                  <span className="font-black uppercase tracking-widest">
-                    {viewMode === 'sales' ? t.dailySales : t.monthlyStock}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-400">
-                  <span className="text-[10px] font-black uppercase">{lang === 'EN' ? 'Change' : 'পরিবর্তন'}</span>
-                  <ChevronRight size={18} />
-                </div>
-              </button>
+              <div className="flex p-1 bg-gray-100 rounded-[2.5rem] border border-gray-200">
+                <button onClick={() => setViewMode('sales')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${viewMode === 'sales' ? 'bg-white text-sky-500 shadow-sm' : 'text-gray-400'}`}><ShoppingBag size={14} /> {t.dailySales}</button>
+                <button onClick={() => setViewMode('stock')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${viewMode === 'stock' ? 'bg-white text-coffee-500 shadow-sm' : 'text-gray-400'}`}><Layers size={14} /> {t.monthlyStock}</button>
+              </div>
             </div>
 
             <div className="space-y-4">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.languageLabel}</label>
-              <button onClick={() => setLang(l => l === 'EN' ? 'BN' : 'EN')} className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100">
-                <div className="flex items-center gap-3"><Globe className="text-sky-500" /> <span className="font-black uppercase tracking-widest">{lang === 'EN' ? 'English' : 'বাংলা'}</span></div>
-                <span className="text-sky-500 font-bold underline underline-offset-4">{t.langBtn}</span>
-              </button>
+              <div className="flex p-1 bg-gray-100 rounded-[2.5rem] border border-gray-200">
+                <button onClick={() => setLang('EN')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${lang === 'EN' ? 'bg-white text-sky-500 shadow-sm' : 'text-gray-400'}`}><Globe size={14} /> English</button>
+                <button onClick={() => setLang('BN')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all ${lang === 'BN' ? 'bg-white text-sky-500 shadow-sm' : 'text-gray-400'}`}><Globe size={14} /> বাংলা</button>
+              </div>
             </div>
 
-            {viewMode === 'sales' ? (
-              <>
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.previousBalance}</label>
-                  <div className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100">
-                    <input 
-                      type="number" 
-                      value={currentDayData.previousBalance || ''} 
-                      onChange={(e) => updateDayData({ previousBalance: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-black focus:border-sky-400 outline-none"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.editPrice}</label>
-                  </div>
-                  <div className="space-y-4">
-                    {items.map((item, idx) => (
-                      <div key={item.id} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 space-y-4 relative">
-                        <div className="grid grid-cols-2 gap-3">
-                           <input type="text" value={item.name} onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" placeholder="Name (EN)" />
-                           <input type="text" value={item.nameBN} onChange={(e) => { const n = [...items]; n[idx].nameBN = e.target.value; setItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" placeholder="Name (BN)" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                           <input type="number" value={item.price250 || ''} onChange={(e) => { const n = [...items]; n[idx].price250 = parseFloat(e.target.value) || 0; setItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-black focus:border-sky-400 outline-none" placeholder="250ml Price" />
-                           <input type="number" value={item.price350 || ''} onChange={(e) => { const n = [...items]; n[idx].price350 = parseFloat(e.target.value) || 0; setItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-black focus:border-sky-400 outline-none" placeholder="350ml Price" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{lang === 'EN' ? 'Edit Stock Items' : 'স্টক আইটেম পরিবর্তন'}</label>
-                <div className="space-y-4">
-                  {stockItems.map((item, idx) => (
-                    <div key={item.id} className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100 space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                         <input type="text" value={item.name} onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" placeholder="Name (EN)" />
-                         <input type="text" value={item.nameBN} onChange={(e) => { const n = [...stockItems]; n[idx].nameBN = e.target.value; setStockItems(n); }} className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" placeholder="Name (BN)" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="space-y-4">
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.previousBalance}</label>
+              <div className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100">
+                <input type="number" value={currentDayData.previousBalance || ''} readOnly={isLocked} onChange={(e) => updateDayData({ previousBalance: parseFloat(e.target.value) || 0 })} className={`w-full border rounded-xl px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'bg-gray-200/50 cursor-not-allowed border-gray-100' : 'bg-white border-gray-200 focus:border-sky-400'}`} placeholder="0" />
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="p-6 bg-white border-t border-gray-50">
-             <button onClick={() => setIsSettingsOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}>
-               <Check size={20} /> {lang === 'EN' ? 'DONE' : 'সম্পন্ন'}
-             </button>
+            <div className="space-y-4">
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Controls</label>
+              
+              <button onClick={() => setIsProductManagementOpen(true)} className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]">
+                <div className="flex items-center gap-3"><LayoutGrid className="text-sky-500" /><span className="font-black uppercase tracking-widest">{t.manageProducts}</span></div>
+                <ChevronRight className="text-gray-300" size={24} />
+              </button>
+
+              <button onClick={() => setIsChangePinModalOpen(true)} className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]">
+                <div className="flex items-center gap-3"><ShieldCheck className="text-sky-500" /><span className="font-black uppercase tracking-widest">{t.securityPin}</span></div>
+                <ChevronRight className="text-gray-300" size={24} />
+              </button>
+
+              <button 
+                onClick={() => setIsCloudSyncEnabled(!isCloudSyncEnabled)} 
+                className="w-full py-5 bg-gray-50 rounded-[2rem] flex items-center justify-between px-6 border border-gray-100 hover:bg-gray-100 transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                    <Cloud className={isSyncing ? "text-sky-500 animate-bounce" : "text-sky-500"} />
+                    <span className="font-black uppercase tracking-widest">{t.cloudSync}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    {isCloudSyncEnabled ? (
+                        <ToggleRight className="text-sky-500" size={36} />
+                    ) : (
+                        <ToggleLeft className="text-gray-300" size={36} />
+                    )}
+                </div>
+              </button>
+            </div>
           </div>
+          <div className="p-6 bg-white border-t border-gray-50"><button onClick={() => setIsSettingsOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}><Check size={20} /> {lang === 'EN' ? 'DONE' : 'সম্পন্ন'}</button></div>
         </div>
       )}
 
-      {isViewPickerOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-black uppercase tracking-tight text-center mb-8">{t.viewMode}</h3>
-            <div className="space-y-4">
-              <button 
-                onClick={() => { setViewMode('sales'); setIsViewPickerOpen(false); }}
-                className={`w-full p-6 rounded-[2rem] flex items-center gap-4 transition-all ${viewMode === 'sales' ? 'bg-sky-500 text-white shadow-xl shadow-sky-100' : 'bg-gray-50 text-gray-400'}`}
-              >
-                <div className={`p-3 rounded-2xl ${viewMode === 'sales' ? 'bg-white/20' : 'bg-white'}`}><ShoppingBag size={24} /></div>
-                <div className="text-left">
-                  <p className="font-black uppercase tracking-widest">{t.dailySales}</p>
-                  <p className={`text-[10px] ${viewMode === 'sales' ? 'text-white/70' : 'text-gray-400'}`}>Daily revenue & tracking</p>
+      {isProductManagementOpen && (
+        <div className="fixed inset-0 z-[70] bg-white animate-in slide-in-from-bottom duration-500 flex flex-col pt-[env(safe-area-inset-top)]">
+          <header className="p-6 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-3"><LayoutGrid className="text-sky-500" size={28} /><h2 className="text-2xl font-black text-black uppercase tracking-tight">{t.manageProducts}</h2></div>
+            <button onClick={() => setIsProductManagementOpen(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-black transition-all"><X size={24} /></button>
+          </header>
+          <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar pb-32">
+            {viewMode === 'sales' ? (
+              items.map((item, idx) => (
+                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4">
+                  <div className="flex items-center gap-3 mb-2"><span className="text-2xl">{item.icon}</span><span className="text-xs font-black text-gray-400 uppercase tracking-widest">Item #{idx+1}</span></div>
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Name (EN)</label><input type="text" value={item.name} onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" /></div>
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...items]; n[idx].nameBN = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" /></div>
+                  </div>
                 </div>
-              </button>
-              <button 
-                onClick={() => { setViewMode('stock'); setIsViewPickerOpen(false); }}
-                className={`w-full p-6 rounded-[2rem] flex items-center gap-4 transition-all ${viewMode === 'stock' ? 'bg-coffee-500 text-white shadow-xl shadow-coffee-100' : 'bg-gray-50 text-gray-400'}`}
-              >
-                <div className={`p-3 rounded-2xl ${viewMode === 'stock' ? 'bg-white/20' : 'bg-white'}`}><Layers size={24} /></div>
-                <div className="text-left">
-                  <p className="font-black uppercase tracking-widest">{t.monthlyStock}</p>
-                  <p className={`text-[10px] ${viewMode === 'stock' ? 'text-white/70' : 'text-gray-400'}`}>Monthly inventory & supply</p>
+              ))
+            ) : (
+              stockItems.map((item, idx) => (
+                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Stock Name (EN)</label><input type="text" value={item.name} onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...stockItems]; n[idx].nameBN = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
+                  </div>
                 </div>
-              </button>
-            </div>
-            <button onClick={() => setIsViewPickerOpen(false)} className="w-full mt-6 py-4 text-gray-400 font-bold uppercase tracking-widest text-xs">Cancel</button>
+              ))
+            )}
           </div>
+          <div className="p-6 bg-white border-t border-gray-50"><button onClick={() => setIsProductManagementOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}><Save size={20} /> {t.save}</button></div>
         </div>
+      )}
+
+      {detailModalType && (
+        <DetailModal type={detailModalType} entries={detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : (currentDayData.expenseDetails || [])} onClose={() => setDetailModalType(null)} readOnly={isLocked} onSave={(entries) => {
+            const total = entries.reduce((sum, e) => sum + e.amount, 0);
+            updateDayData({ [detailModalType === 'purchase' ? 'purchase' : 'expense']: total, [detailModalType === 'purchase' ? 'purchaseDetails' : 'expenseDetails']: entries });
+            setDetailModalType(null);
+          }} lang={lang} />
       )}
 
       {isShareModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-t-[3rem] sm:rounded-[3rem] p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom duration-300 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className={`text-2xl font-black uppercase tracking-tight ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>
-                {viewMode === 'sales' ? t.shareSalesTitle : t.shareStockTitle}
-              </h3>
-              <button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-full"><X size={20} /></button>
-            </div>
+            <div className="flex justify-between items-center mb-8"><h3 className={`text-2xl font-black uppercase tracking-tight ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>{viewMode === 'sales' ? t.shareSalesTitle : t.shareStockTitle}</h3><button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-full"><X size={20} /></button></div>
             <div className="grid grid-cols-3 gap-6">
-              <button onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(generateSummaryText())}`, '_blank'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group">
-                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><MessageCircle size={32} /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">WhatsApp</span>
-              </button>
-              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert('Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group">
-                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Copy size={32} /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Copy Text</span>
-              </button>
-              <button onClick={() => {
-                const sharePayload = {
-                  date: currentDate,
-                  mode: viewMode,
-                  data: viewMode === 'sales' ? currentDayData : currentStockData
-                };
-                const url = `${window.location.origin}${window.location.pathname}#report=${btoa(JSON.stringify(sharePayload))}`;
-                navigator.clipboard.writeText(url);
-                alert('Magic Link copied!');
-                setIsShareModalOpen(false);
-              }} className="flex flex-col items-center gap-3 group">
-                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Send size={32} /></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Magic Link</span>
-              </button>
+              <button onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(generateSummaryText())}`, '_blank'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><MessageCircle size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">WhatsApp</span></button>
+              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert('Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Copy size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Copy Text</span></button>
+              <button onClick={() => { setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group opacity-50"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Send size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Magic Link</span></button>
             </div>
           </div>
         </div>
       )}
       
-      {/* Floating Lemon Green Accent Action Button */}
       <div className="fixed bottom-6 right-6 z-40 hidden sm:block">
-        <button 
-           onClick={() => setIsViewPickerOpen(true)}
-           className="p-4 bg-lemongreen-400 text-black rounded-full shadow-2xl hover:bg-lemongreen-300 transition-all active:scale-90 border-2 border-black"
-        >
-          <Layers size={24} />
-        </button>
+        <button onClick={() => setViewMode(prev => prev === 'sales' ? 'stock' : 'sales')} className="p-4 bg-lemongreen-400 text-black rounded-full shadow-2xl hover:bg-lemongreen-300 transition-all active:scale-90 border-2 border-black"><Layers size={24} /></button>
       </div>
+
+      <style>{`
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+      `}</style>
     </div>
   );
 };

@@ -31,6 +31,7 @@ export interface DayData {
   expenseDetails?: DetailEntry[];
   previousBalance: number;
   notes: string;
+  isSynced?: boolean;
 }
 
 export interface StockEntry {
@@ -40,6 +41,7 @@ export interface StockEntry {
 
 export interface MonthStockData {
   items: Record<string, StockEntry>;
+  isSynced?: boolean;
 }
 
 export interface AIAnalysisResponse {
