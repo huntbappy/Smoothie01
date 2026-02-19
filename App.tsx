@@ -318,8 +318,9 @@ const App: React.FC = () => {
         alert(lang === 'BN' ? 'ম্যাজিক রিপোর্ট কপি করা হয়েছে!' : 'Magic report copied to clipboard!');
       }
     } catch (error) {
-      console.error(error);
-      alert('Magic Link analysis failed. Copying basic report instead.');
+      console.error("Magic link failed", error);
+      const failMsg = lang === 'BN' ? 'ম্যাজিক লিংক বিশ্লেষণ ব্যর্থ হয়েছে। সাধারণ রিপোর্ট কপি করা হচ্ছে।' : 'Magic Link analysis failed. Copying basic report instead.';
+      alert(failMsg);
       navigator.clipboard.writeText(generateSummaryText());
     } finally {
       setIsAnalyzing(false);
