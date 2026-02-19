@@ -4,12 +4,13 @@ import {
   Settings, Share2, Trash2, Globe, Calendar, X, Save, Plus, Trash, 
   FileText, MessageCircle, Send, Copy, Wallet, ShoppingBag, 
   Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft,
-  Facebook
+  Facebook, Sparkles, Loader2
 } from 'lucide-react';
 import { INITIAL_ITEMS, STOCK_ITEMS, TRANSLATIONS } from './constants';
 import { ItemConfig, StockItemConfig, Language, DayData, ViewMode, MonthStockData } from './types';
 import SmoothieLogo from './components/SmoothieLogo';
 import DetailModal from './components/DetailModal';
+import { analyzeDailySales } from './services/geminiService';
 
 // Mock Cloud Storage Key
 const CLOUD_MOCK_KEY = 'cloud_drive_history';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
 
   const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => localStorage.setItem('lang', lang), [lang]);
   useEffect(() => localStorage.setItem('viewMode', viewMode), [viewMode]);
@@ -247,9 +249,7 @@ const App: React.FC = () => {
     if (!window.confirm(confirmMsg)) return;
     
     if (viewMode === 'sales') {
-      // Calculate current total balance before clearing
       const balanceToForward = totalBalance;
-      
       updateDayData({
         quantities: {},
         purchase: 0,
@@ -258,7 +258,7 @@ const App: React.FC = () => {
         expenseDetails: [],
         notes: '',
         isSynced: false,
-        previousBalance: balanceToForward // Carry over Total Balance to Previous Balance
+        previousBalance: balanceToForward
       });
     } else {
       setStockHistory(prev => ({
@@ -296,22 +296,66 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMessengerShare = () => {
-    const text = generateSummaryText();
-    // Using Navigator Share API for native Messenger support on mobile
-    if (navigator.share) {
-      navigator.share({
-        title: `${t.title} - ${formattedDisplayDate}`,
-        text: text,
-      }).catch(() => {
-        navigator.clipboard.writeText(text);
-        alert(lang === 'BN' ? 'টেক্সট কপি করা হয়েছে!' : 'Text copied to clipboard!');
-      });
-    } else {
-      navigator.clipboard.writeText(text);
-      alert(lang === 'BN' ? 'মেসেঞ্জারে শেয়ার করার জন্য টেক্সট কপি করা হয়েছে!' : 'Text copied for sharing to Messenger!');
+  const handleMagicLinkShare = async () => {
+    if (viewMode !== 'sales') {
+      alert(lang === 'BN' ? 'ম্যাজিক লিংক শুধুমাত্র দৈনিক বিক্রয়ের জন্য প্রযোজ্য।' : 'Magic Link is only available for Daily Sales.');
+      return;
     }
-    setIsShareModalOpen(false);
+    
+    setIsAnalyzing(true);
+    try {
+      const analysis = await analyzeDailySales(items, currentDayData, lang);
+      const summaryText = generateSummaryText();
+      const magicSummary = `✨ *SMART INSIGHT* ✨\n${analysis.insight}\n\n💡 *SUGGESTION* 💡\n${analysis.suggestion}\n\n📣 *MARKETING HOOK* 📣\n${analysis.marketingHook}\n\n━━━━━━━━━━━━━━━\n${summaryText}`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: `Magic Insight - ${formattedDisplayDate}`,
+          text: magicSummary,
+        });
+      } else {
+        await navigator.clipboard.writeText(magicSummary);
+        alert(lang === 'BN' ? 'ম্যাজিক রিপোর্ট কপি করা হয়েছে!' : 'Magic report copied to clipboard!');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Magic Link analysis failed. Copying basic report instead.');
+      navigator.clipboard.writeText(generateSummaryText());
+    } finally {
+      setIsAnalyzing(false);
+      setIsShareModalOpen(false);
+    }
+  };
+
+  const addProduct = () => {
+    if (viewMode === 'sales') {
+      const newItem: ItemConfig = {
+        id: Date.now().toString(),
+        name: 'New Smoothie',
+        nameBN: 'নতুন স্মুদি',
+        price250: 100,
+        price350: 150,
+        icon: '🥤',
+        color: '#f9fafb'
+      };
+      setItems([...items, newItem]);
+    } else {
+      const newItem: StockItemConfig = {
+        id: 's' + Date.now().toString(),
+        name: 'New Stock',
+        nameBN: 'নতুন স্টক'
+      };
+      setStockItems([...stockItems, newItem]);
+    }
+  };
+
+  const deleteProduct = (id: string) => {
+    if (!window.confirm(lang === 'BN' ? 'আপনি কি এটি মুছতে চান?' : 'Are you sure you want to delete this?')) return;
+    if (viewMode === 'sales') {
+      setItems(items.filter(i => i.id !== id));
+    } else {
+      setStockItems(stockItems.filter(i => i.id !== id));
+    }
   };
 
   return (
@@ -329,12 +373,6 @@ const App: React.FC = () => {
              </div>
           </div>
           <div className="flex items-center gap-2">
-            {isCloudSyncEnabled && (
-                <div className="flex items-center gap-1 bg-lemongreen-50 text-lemongreen-600 px-3 py-1.5 rounded-full border border-lemongreen-100 animate-in fade-in zoom-in-95 duration-300">
-                    <Cloud size={14} className={isSyncing ? "animate-pulse" : ""} />
-                    <span className="text-[9px] font-black uppercase tracking-tight">{isSyncing ? 'Syncing' : 'Cloud On'}</span>
-                </div>
-            )}
             {isHistorical && (
               <button 
                 onClick={() => isLocked ? setIsPinModalOpen(true) : setIsUnlockedByPin(false)}
@@ -475,7 +513,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Security Modals */}
+      {/* PIN Modals */}
       {isPinModalOpen && (
         <div className="fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
             <div className="bg-white rounded-[3rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 text-center">
@@ -583,6 +621,70 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Product Management Modal */}
+      {isProductManagementOpen && (
+        <div className="fixed inset-0 z-[70] bg-white animate-in slide-in-from-bottom duration-500 flex flex-col pt-[env(safe-area-inset-top)]">
+          <header className="p-6 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-3"><LayoutGrid className="text-sky-500" size={28} /><h2 className="text-2xl font-black text-black uppercase tracking-tight">{t.manageProducts}</h2></div>
+            <button onClick={() => setIsProductManagementOpen(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-black transition-all"><X size={24} /></button>
+          </header>
+          
+          <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar pb-32">
+            <button 
+              onClick={addProduct}
+              className={`w-full py-5 font-black rounded-[2rem] shadow-sm flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95 transition-all text-sm border-2 border-dashed ${viewMode === 'sales' ? 'border-sky-200 text-sky-500 bg-sky-50' : 'border-coffee-200 text-coffee-500 bg-coffee-50'}`}
+            >
+              <Plus size={20} /> {lang === 'EN' ? 'Add New Product' : 'নতুন প্রোডাক্ট যুক্ত করুন'}
+            </button>
+
+            {viewMode === 'sales' ? (
+              items.map((item, idx) => (
+                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4 relative group">
+                  <button onClick={() => deleteProduct(item.id)} className="absolute top-4 right-4 p-3 bg-white text-gray-300 hover:text-red-500 rounded-full border border-gray-100 shadow-sm transition-all"><Trash2 size={16}/></button>
+                  <div className="flex items-center gap-4 mb-2">
+                    <input 
+                      type="text" 
+                      value={item.icon} 
+                      onChange={(e) => { const n = [...items]; n[idx].icon = e.target.value; setItems(n); }} 
+                      className="w-16 h-16 text-2xl text-center bg-white border border-gray-200 rounded-2xl outline-none focus:border-sky-400 transition-all"
+                    />
+                    <div className="flex-1">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Smoothie Name (EN)</span>
+                      <input type="text" value={item.name} onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...items]; n[idx].nameBN = e.target.value; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-sky-400 outline-none" /></div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Prices (250 | 350)</label>
+                        <div className="flex gap-2">
+                          <input type="number" value={item.price250} onChange={(e) => { const n = [...items]; n[idx].price250 = parseInt(e.target.value) || 0; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-black text-center focus:border-sky-400 outline-none" />
+                          <input type="number" value={item.price350} onChange={(e) => { const n = [...items]; n[idx].price350 = parseInt(e.target.value) || 0; setItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-black text-center focus:border-sky-400 outline-none" />
+                        </div>
+                     </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              stockItems.map((item, idx) => (
+                <div key={item.id} className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 space-y-4 relative group">
+                  <button onClick={() => deleteProduct(item.id)} className="absolute top-4 right-4 p-3 bg-white text-gray-300 hover:text-red-500 rounded-full border border-gray-100 shadow-sm transition-all"><Trash2 size={16}/></button>
+                  <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Stock Name (EN)</label><input type="text" value={item.name} onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
+                     <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase ml-2">নাম (বাংলা)</label><input type="text" value={item.nameBN} onChange={(e) => { const n = [...stockItems]; n[idx].nameBN = e.target.value; setStockItems(n); }} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-coffee-400 outline-none" /></div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="p-6 bg-white border-t border-gray-50">
+            <button onClick={() => setIsProductManagementOpen(false)} className={`w-full py-5 text-white font-black rounded-[2rem] shadow-xl uppercase tracking-widest text-sm flex items-center justify-center gap-3 ${viewMode === 'sales' ? 'bg-sky-500' : 'bg-coffee-500'}`}>
+              <Save size={20} /> {t.save}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Detail Modals */}
       {detailModalType && (
         <DetailModal type={detailModalType} entries={detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : (currentDayData.expenseDetails || [])} onClose={() => setDetailModalType(null)} readOnly={isLocked} onSave={(entries) => {
@@ -596,16 +698,34 @@ const App: React.FC = () => {
       {isShareModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-t-[3rem] sm:rounded-[3rem] p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom duration-300 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            <div className="flex justify-between items-center mb-8"><h3 className={`text-2xl font-black uppercase tracking-tight ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>{viewMode === 'sales' ? t.shareSalesTitle : t.shareStockTitle}</h3><button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-full"><X size={20} /></button></div>
-            <div className="grid grid-cols-3 gap-6">
-              <button onClick={handleMessengerShare} className="flex flex-col items-center gap-3 group">
-                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>
-                  <Facebook size={32} />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.messenger}</span>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className={`text-2xl font-black uppercase tracking-tight ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>
+                {viewMode === 'sales' ? t.shareSalesTitle : t.shareStockTitle}
+              </h3>
+              <button onClick={() => setIsShareModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 rounded-full">
+                <X size={20} />
               </button>
-              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert(lang === 'BN' ? 'টেক্সট কপি করা হয়েছে!' : 'Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Copy size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.copyText}</span></button>
-              <button onClick={() => setIsShareModalOpen(false)} className="flex flex-col items-center gap-3 group opacity-50"><div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}><Send size={32} /></div><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Magic Link</span></button>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <button 
+                onClick={handleMagicLinkShare} 
+                disabled={isAnalyzing}
+                className="flex flex-col items-center gap-3 group"
+              >
+                <div className={`w-16 h-16 bg-gradient-to-tr from-sky-400 to-indigo-500 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all text-white shadow-lg shadow-sky-100 ${isAnalyzing ? 'animate-pulse' : ''}`}>
+                  {isAnalyzing ? <Loader2 className="animate-spin" size={32} /> : <Sparkles size={32} />}
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  {isAnalyzing ? (lang === 'BN' ? 'বিশ্লেষণ...' : 'Analyzing...') : (lang === 'BN' ? 'ম্যাজিক লিংক' : 'Magic Link')}
+                </span>
+              </button>
+
+              <button onClick={() => { navigator.clipboard.writeText(generateSummaryText()); alert(lang === 'BN' ? 'টেক্সট কপি করা হয়েছে!' : 'Summary copied!'); setIsShareModalOpen(false); }} className="flex flex-col items-center gap-3 group">
+                <div className={`w-16 h-16 bg-gray-50 rounded-3xl flex items-center justify-center group-active:scale-90 transition-all ${viewMode === 'sales' ? 'text-sky-600' : 'text-coffee-600'}`}>
+                  <Copy size={32} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.copyText}</span>
+              </button>
             </div>
           </div>
         </div>
