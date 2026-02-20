@@ -18,6 +18,16 @@ const getLocalDateString = () => {
   return localDate.toISOString().split('T')[0];
 };
 
+const getNextDateString = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const CLOUD_MOCK_KEY = 'cloud_drive_history';
 
 const App: React.FC = () => {
@@ -224,43 +234,46 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const handleClearAll = async () => {
+  const handleClearAll = () => {
     if (isLocked) return;
 
-    // Capture current total balance to forward it
-    const balanceToForward = totalBalance;
-
     const confirmMsg = lang === 'BN' 
-      ? 'গুগল ড্রাইভে ডাটা সেভ করে কি মুছতে চান?' 
-      : 'Sync to cloud and clear home screen?';
+      ? 'আপনি কি নিশ্চিত যে আপনি সমস্ত ডাটা মুছতে চান?' 
+      : 'Are you sure you want to clear all data?';
     
     if (!window.confirm(confirmMsg)) return;
-    
-    // 1. Sync current day to cloud history
-    await handleCloudSync();
 
-    // 2. Reset active day state but persist in local history
+    const balanceToForward = totalBalance;
+    const nextDate = getNextDateString(currentDate);
+
     if (viewMode === 'sales') {
-      updateDayData({
-        quantities: {},
-        purchase: 0,
-        expense: 0,
-        purchaseDetails: [],
-        expenseDetails: [],
-        notes: '',
-        isSynced: true,
-        previousBalance: balanceToForward 
-      });
+      setHistory(prev => ({
+        ...prev,
+        [currentDate]: {
+          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          quantities: {},
+          purchase: 0,
+          expense: 0,
+          purchaseDetails: [],
+          expenseDetails: [],
+          notes: '',
+          previousBalance: balanceToForward 
+        },
+        [nextDate]: {
+          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          previousBalance: balanceToForward
+        }
+      }));
     } else {
       setStockHistory(prev => ({
         ...prev,
-        [currentMonthKey]: { items: {}, isSynced: true }
+        [currentMonthKey]: { items: {}, isSynced: false }
       }));
     }
 
     const successMsg = lang === 'BN' 
-      ? 'সফলভাবে সিনক্রোনাইজ এবং ক্লিয়ার করা হয়েছে!' 
-      : 'Synced and cleared successfully!';
+      ? 'সফলভাবে ক্লিয়ার করা হয়েছে!' 
+      : 'Cleared successfully!';
     
     alert(successMsg);
   };
@@ -290,10 +303,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleShareOnly = () => {
+  const handleShareOnly = async () => {
+    // 1. Sync to cloud first
+    await handleCloudSync();
+
+    // 2. Then share/copy
     const summary = generateSummaryText();
     if (navigator.share) {
-      navigator.share({ title: t.title, text: summary });
+      try {
+        await navigator.share({ title: t.title, text: summary });
+      } catch (err) {
+        // Fallback to clipboard if share fails or is cancelled
+        navigator.clipboard.writeText(summary);
+        alert(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
+      }
     } else {
       navigator.clipboard.writeText(summary);
       alert(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
