@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Settings, Share2, Trash2, Globe, Calendar, X, Save, Plus, 
+  Settings, Share2, Globe, Calendar, X, Save, Plus, 
   FileText, Copy, Wallet, ShoppingBag, 
   Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft
 } from 'lucide-react';
@@ -100,19 +100,19 @@ const App: React.FC = () => {
   const currentMonthKey = currentDate.substring(0, 7);
   const today = getLocalDateString();
   
-  const isHistorical = currentDate < today;
-  const isLocked = isHistorical && !isUnlockedByPin;
-
-  useEffect(() => {
-    // When switching dates, always re-lock if it's history
-    setIsUnlockedByPin(false);
-  }, [currentDate]);
-
   const currentDayData: DayData = history[currentDate] || { 
     quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '', isSynced: false
   };
 
   const currentStockData: MonthStockData = stockHistory[currentMonthKey] || { items: {}, isSynced: false };
+
+  const isHistorical = currentDate < today;
+  const isLocked = (isHistorical || currentDayData.isLocked) && !isUnlockedByPin;
+
+  useEffect(() => {
+    // When switching dates, always re-lock if it's history
+    setIsUnlockedByPin(false);
+  }, [currentDate]);
 
   const formattedDisplayDate = useMemo(() => {
     const dateObj = new Date(currentDate);
@@ -234,50 +234,6 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const handleClearAll = () => {
-    if (isLocked) return;
-
-    const confirmMsg = lang === 'BN' 
-      ? 'আপনি কি নিশ্চিত যে আপনি সমস্ত ডাটা মুছতে চান?' 
-      : 'Are you sure you want to clear all data?';
-    
-    if (!window.confirm(confirmMsg)) return;
-
-    const balanceToForward = totalBalance;
-    const nextDate = getNextDateString(currentDate);
-
-    if (viewMode === 'sales') {
-      setHistory(prev => ({
-        ...prev,
-        [currentDate]: {
-          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
-          quantities: {},
-          purchase: 0,
-          expense: 0,
-          purchaseDetails: [],
-          expenseDetails: [],
-          notes: '',
-          previousBalance: balanceToForward 
-        },
-        [nextDate]: {
-          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
-          previousBalance: balanceToForward
-        }
-      }));
-    } else {
-      setStockHistory(prev => ({
-        ...prev,
-        [currentMonthKey]: { items: {}, isSynced: false }
-      }));
-    }
-
-    const successMsg = lang === 'BN' 
-      ? 'সফলভাবে ক্লিয়ার করা হয়েছে!' 
-      : 'Cleared successfully!';
-    
-    alert(successMsg);
-  };
-
   const generateSummaryText = () => {
     if (viewMode === 'sales') {
       let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
@@ -307,7 +263,26 @@ const App: React.FC = () => {
     // 1. Sync to cloud first
     await handleCloudSync();
 
-    // 2. Then share/copy
+    // 2. Lock the current day and forward balance
+    const balanceToForward = totalBalance;
+    const nextDate = getNextDateString(currentDate);
+
+    if (viewMode === 'sales') {
+      setHistory(prev => ({
+        ...prev,
+        [currentDate]: {
+          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          isLocked: true,
+          isSynced: true
+        },
+        [nextDate]: {
+          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          previousBalance: balanceToForward
+        }
+      }));
+    }
+
+    // 3. Then share/copy
     const summary = generateSummaryText();
     if (navigator.share) {
       try {
@@ -511,13 +486,12 @@ const App: React.FC = () => {
         )}
 
         <div className="flex gap-4 mb-16">
-          <button onClick={handleClearAll} disabled={isLocked || isSyncing} className={`flex-1 py-5 text-white font-black rounded-[2rem] flex items-center justify-center gap-3 uppercase tracking-widest transition-all text-sm ${isLocked || isSyncing ? 'bg-gray-300' : 'bg-gray-500 hover:bg-gray-600 shadow-xl shadow-gray-100'}`}><Trash2 size={20} /> {t.clearAll}</button>
           <button onClick={handleShareOnly} className={`flex-1 py-5 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest transition-all text-sm ${viewMode === 'sales' ? 'bg-sky-500 shadow-sky-100 hover:bg-sky-600' : 'bg-coffee-500 shadow-coffee-100 hover:bg-coffee-600'}`}><Share2 size={20} /> {t.share}</button>
         </div>
       </main>
 
-      {/* Floating PIN Unlock Button - Only shows when viewing historical data */}
-      {isHistorical && (
+      {/* Floating PIN Unlock Button - Shows when viewing historical data or locked current data */}
+      {(isHistorical || currentDayData.isLocked) && (
           <button 
             onClick={() => isLocked ? setIsPinModalOpen(true) : setIsUnlockedByPin(false)}
             className={`fixed bottom-6 right-6 z-[50] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl backdrop-blur-md border border-white/20 transition-all active:scale-90 ${isLocked ? 'bg-red-500 text-white shadow-red-200 animate-bounce' : 'bg-green-500 text-white shadow-green-200'}`}

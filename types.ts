@@ -32,6 +32,7 @@ export interface DayData {
   previousBalance: number;
   notes: string;
   isSynced?: boolean;
+  isLocked?: boolean;
 }
 
 export interface StockEntry {
