@@ -1,5 +1,5 @@
 {
   "name": "Smoothie Bar",
   "description": "A high-performance daily sales and inventory tracker for smoothie businesses with bilingual support (English/Bengali).",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["web-share"]
 }

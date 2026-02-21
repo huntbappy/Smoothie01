@@ -414,14 +414,30 @@ const App: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => setDetailModalType('purchase')} className="bg-white p-5 rounded-[2rem] border border-gray-100 text-left">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><ShoppingBag size={10}/> {t.purchase}</label>
-                  <span className="text-2xl font-black text-black">{t.taka} {currentDayData.purchase}</span>
-                </button>
-                <button onClick={() => setDetailModalType('expense')} className="bg-white p-5 rounded-[2rem] border border-gray-100 text-left">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><Receipt size={10}/> {t.expense}</label>
-                  <span className="text-2xl font-black text-black">{t.taka} {currentDayData.expense}</span>
-                </button>
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 text-left flex flex-col justify-between">
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><ShoppingBag size={10}/> {t.purchase}</label>
+                    <span className="text-2xl font-black text-black">{t.taka} {currentDayData.purchase}</span>
+                  </div>
+                  <button 
+                    onClick={() => setDetailModalType('purchase')}
+                    className="mt-3 py-1.5 px-4 bg-gray-50 text-[10px] font-black text-gray-500 rounded-full border border-gray-100 hover:bg-sky-50 hover:text-sky-600 transition-all self-start uppercase tracking-widest"
+                  >
+                    {lang === 'BN' ? 'বিবরণ' : 'Description'}
+                  </button>
+                </div>
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 text-left flex flex-col justify-between">
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><Receipt size={10}/> {t.expense}</label>
+                    <span className="text-2xl font-black text-black">{t.taka} {currentDayData.expense}</span>
+                  </div>
+                  <button 
+                    onClick={() => setDetailModalType('expense')}
+                    className="mt-3 py-1.5 px-4 bg-gray-50 text-[10px] font-black text-gray-500 rounded-full border border-gray-100 hover:bg-sky-50 hover:text-sky-600 transition-all self-start uppercase tracking-widest"
+                  >
+                    {lang === 'BN' ? 'বিবরণ' : 'Description'}
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white p-6 rounded-[2rem] border border-gray-100 flex justify-between items-center relative overflow-hidden">
