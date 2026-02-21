@@ -239,8 +239,10 @@ const App: React.FC = () => {
       let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
       
       // Sales Items
+      let hasSales = false;
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
+          hasSales = true;
           text += `${item.icon || '🥤'} *${lang === 'BN' ? item.nameBN : item.name}*\n`;
           if (item.q250 > 0) text += `   • 250ml: ${item.q250}\n`;
           if (item.q350 > 0) text += `   • 350ml: ${item.q350}\n`;
@@ -248,25 +250,33 @@ const App: React.FC = () => {
         }
       });
 
-      // Purchase Details
-      if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
+      if (!hasSales) {
+        text += `(No sales recorded)\n\n`;
+      }
+
+      // Purchase Section
+      if ((currentDayData.purchase || 0) > 0) {
         text += `🛒 *${t.purchase} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
-        currentDayData.purchaseDetails.forEach(p => {
-          if (p.amount > 0) {
-            text += `   • ${p.description}: ${t.taka}${p.amount}\n`;
-          }
-        });
+        if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
+          currentDayData.purchaseDetails.forEach(p => {
+            if (p.amount > 0) {
+              text += `   • ${p.description || (lang === 'BN' ? 'আইটেম' : 'Item')}: ${t.taka}${p.amount}\n`;
+            }
+          });
+        }
         text += `   *Total ${t.purchase}: ${t.taka}${currentDayData.purchase}*\n\n`;
       }
 
-      // Expense Details
-      if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
+      // Expense Section
+      if ((currentDayData.expense || 0) > 0) {
         text += `💸 *${t.expense} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
-        currentDayData.expenseDetails.forEach(e => {
-          if (e.amount > 0) {
-            text += `   • ${e.description}: ${t.taka}${e.amount}\n`;
-          }
-        });
+        if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
+          currentDayData.expenseDetails.forEach(e => {
+            if (e.amount > 0) {
+              text += `   • ${e.description || (lang === 'BN' ? 'আইটেম' : 'Item')}: ${t.taka}${e.amount}\n`;
+            }
+          });
+        }
         text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
       }
 
