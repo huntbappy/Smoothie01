@@ -237,6 +237,8 @@ const App: React.FC = () => {
   const generateSummaryText = () => {
     if (viewMode === 'sales') {
       let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
+      
+      // Sales Items
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
           text += `${item.icon || '🥤'} *${lang === 'BN' ? item.nameBN : item.name}*\n`;
@@ -245,7 +247,35 @@ const App: React.FC = () => {
           text += `   *Subtotal: ${t.taka}${item.itemTotal}*\n\n`;
         }
       });
+
+      // Purchase Details
+      if (currentDayData.purchaseDetails && currentDayData.purchaseDetails.length > 0) {
+        text += `🛒 *${t.purchase} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
+        currentDayData.purchaseDetails.forEach(p => {
+          if (p.amount > 0) {
+            text += `   • ${p.description}: ${t.taka}${p.amount}\n`;
+          }
+        });
+        text += `   *Total ${t.purchase}: ${t.taka}${currentDayData.purchase}*\n\n`;
+      }
+
+      // Expense Details
+      if (currentDayData.expenseDetails && currentDayData.expenseDetails.length > 0) {
+        text += `💸 *${t.expense} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
+        currentDayData.expenseDetails.forEach(e => {
+          if (e.amount > 0) {
+            text += `   • ${e.description}: ${t.taka}${e.amount}\n`;
+          }
+        });
+        text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
+      }
+
       text += `━━━━━━━━━━━━━━━\n💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
+      
+      if (currentDayData.notes) {
+        text += `\n📝 *${t.notes}*: ${currentDayData.notes}\n`;
+      }
+      
       return text;
     } else {
       let text = `📦 *${t.title} - ${t.monthlyStock}*\n📅 ${formattedDisplayDate}\n\n`;
