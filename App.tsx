@@ -238,21 +238,25 @@ const App: React.FC = () => {
     if (viewMode === 'sales') {
       let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
       
+      // Table Header
+      const subtotalLabel = lang === 'BN' ? 'সাবটোটাল' : 'Subtotal';
+      text += `*${t.itemHeader} | ${t.q250} | ${t.q350} | ${subtotalLabel}*\n`;
+      text += `--------------------------------\n`;
+
       // Sales Items
       let hasSales = false;
       totals.itemsWithTotals.forEach(item => {
         if (item.q250 > 0 || item.q350 > 0) {
           hasSales = true;
-          text += `${item.icon || '🥤'} *${lang === 'BN' ? item.nameBN : item.name}*\n`;
-          if (item.q250 > 0) text += `   • 250ml: ${item.q250}\n`;
-          if (item.q350 > 0) text += `   • 350ml: ${item.q350}\n`;
-          text += `   *Subtotal: ${t.taka}${item.itemTotal}*\n\n`;
+          const itemName = lang === 'BN' ? item.nameBN : item.name;
+          text += `${item.icon || '🥤'} ${itemName} | ${item.q250} | ${item.q350} | ${item.itemTotal}\n`;
         }
       });
 
       if (!hasSales) {
-        text += `(No sales recorded)\n\n`;
+        text += `(No sales recorded)\n`;
       }
+      text += `\n`;
 
       // Purchase Section
       if ((currentDayData.purchase || 0) > 0) {
@@ -280,7 +284,11 @@ const App: React.FC = () => {
         text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
       }
 
-      text += `━━━━━━━━━━━━━━━\n💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
+      text += `--------------------------------\n`;
+      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
+      text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
+      text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
+      text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
       
       if (currentDayData.notes) {
         text += `\n📝 *${t.notes}*: ${currentDayData.notes}\n`;
