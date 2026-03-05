@@ -101,7 +101,7 @@ const App: React.FC = () => {
   const today = getLocalDateString();
   
   const currentDayData: DayData = history[currentDate] || { 
-    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '', isSynced: false
+    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '', isSynced: false
   };
 
   const currentStockData: MonthStockData = stockHistory[currentMonthKey] || { items: {}, isSynced: false };
@@ -201,7 +201,7 @@ const App: React.FC = () => {
   }, [currentStockData, stockItems]);
 
   const cashInHand = totals.grandTotal - (currentDayData.purchase || 0) - (currentDayData.expense || 0);
-  const totalBalance = cashInHand + (currentDayData.previousBalance || 0);
+  const totalBalance = cashInHand + (currentDayData.previousBalance || 0) + (currentDayData.adjustAmount || 0);
 
   const handlePINSubmit = () => {
     if (pinInput === securityPin) {
@@ -288,6 +288,9 @@ const App: React.FC = () => {
       text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
       text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
       text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
+      if (currentDayData.adjustAmount) {
+        text += `🔄 *${t.adjustAmount}: ${t.taka}${currentDayData.adjustAmount}*\n`;
+      }
       text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
       
       if (currentDayData.notes) {
@@ -319,12 +322,12 @@ const App: React.FC = () => {
       setHistory(prev => ({
         ...prev,
         [currentDate]: {
-          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '' }),
           isLocked: true,
           isSynced: true
         },
         [nextDate]: {
-          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, notes: '' }),
+          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '' }),
           previousBalance: balanceToForward
         }
       }));
@@ -511,6 +514,23 @@ const App: React.FC = () => {
                   <p className="text-[8px] font-black uppercase text-gray-300 mt-2 tracking-widest">Edit only in Settings</p>
               </div>
 
+              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.adjustAmount}</label>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-baseline gap-1 w-full">
+                      <span className="text-5xl font-black text-sky-600 tracking-tighter">{t.taka}</span>
+                      <input 
+                        type="number" 
+                        value={currentDayData.adjustAmount || ''} 
+                        readOnly={isLocked}
+                        onChange={(e) => updateDayData({ adjustAmount: parseFloat(e.target.value) || 0 })} 
+                        className={`w-full text-5xl font-black text-sky-600 tracking-tighter outline-none bg-transparent ${isLocked ? 'cursor-not-allowed' : ''}`}
+                        placeholder="0" 
+                      />
+                    </div>
+                  </div>
+              </div>
+
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-8 border-l-sky-500">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.totalBalance}</label>
                   <div className="flex justify-between items-end">
@@ -622,6 +642,20 @@ const App: React.FC = () => {
                   value={currentDayData.previousBalance || ''} 
                   readOnly={isLocked}
                   onChange={(e) => updateDayData({ previousBalance: parseFloat(e.target.value) || 0 })} 
+                  className={`w-full border rounded-xl px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'bg-gray-200/50 cursor-not-allowed border-gray-100' : 'bg-white border-gray-200 focus:border-sky-400'}`} 
+                  placeholder="0" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.adjustAmount}</label>
+              <div className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100">
+                <input 
+                  type="number" 
+                  value={currentDayData.adjustAmount || ''} 
+                  readOnly={isLocked}
+                  onChange={(e) => updateDayData({ adjustAmount: parseFloat(e.target.value) || 0 })} 
                   className={`w-full border rounded-xl px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'bg-gray-200/50 cursor-not-allowed border-gray-100' : 'bg-white border-gray-200 focus:border-sky-400'}`} 
                   placeholder="0" 
                 />
