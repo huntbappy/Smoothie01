@@ -74,7 +74,7 @@ const App: React.FC = () => {
   const [pinForm, setPinForm] = useState({ old: '', new: '', confirm: '' });
   const [changePinError, setChangePinError] = useState('');
 
-  const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | null>(null);
+  const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | 'adjustAmount' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
@@ -101,7 +101,7 @@ const App: React.FC = () => {
   const today = getLocalDateString();
   
   const currentDayData: DayData = history[currentDate] || { 
-    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '', isSynced: false
+    quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, adjustAmountDetails: [], notes: '', isSynced: false
   };
 
   const currentStockData: MonthStockData = stockHistory[currentMonthKey] || { items: {}, isSynced: false };
@@ -288,9 +288,19 @@ const App: React.FC = () => {
       text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
       text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
       text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
-      if (currentDayData.adjustAmount) {
-        text += `🔄 *${t.adjustAmount}: ${t.taka}${currentDayData.adjustAmount}*\n`;
+      // Adjust Amount Section
+      if ((currentDayData.adjustAmount || 0) !== 0) {
+        text += `🔄 *${t.adjustAmount} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
+        if (currentDayData.adjustAmountDetails && currentDayData.adjustAmountDetails.length > 0) {
+          currentDayData.adjustAmountDetails.forEach(a => {
+            if (a.amount !== 0) {
+              text += `   • ${a.description || (lang === 'BN' ? 'আইটেম' : 'Item')}: ${t.taka}${a.amount}\n`;
+            }
+          });
+        }
+        text += `   *Total ${t.adjustAmount}: ${t.taka}${currentDayData.adjustAmount}*\n\n`;
       }
+
       text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
       
       if (currentDayData.notes) {
@@ -322,12 +332,12 @@ const App: React.FC = () => {
       setHistory(prev => ({
         ...prev,
         [currentDate]: {
-          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '' }),
+          ...(prev[currentDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, adjustAmountDetails: [], notes: '' }),
           isLocked: true,
           isSynced: true
         },
         [nextDate]: {
-          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, notes: '' }),
+          ...(prev[nextDate] || { quantities: {}, purchase: 0, expense: 0, previousBalance: 0, adjustAmount: 0, adjustAmountDetails: [], notes: '' }),
           previousBalance: balanceToForward
         }
       }));
@@ -514,21 +524,17 @@ const App: React.FC = () => {
                   <p className="text-[8px] font-black uppercase text-gray-300 mt-2 tracking-widest">Edit only in Settings</p>
               </div>
 
-              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">{t.adjustAmount}</label>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-baseline gap-1 w-full">
-                      <span className="text-5xl font-black text-sky-600 tracking-tighter">{t.taka}</span>
-                      <input 
-                        type="number" 
-                        value={currentDayData.adjustAmount || ''} 
-                        readOnly={isLocked}
-                        onChange={(e) => updateDayData({ adjustAmount: parseFloat(e.target.value) || 0 })} 
-                        className={`w-full text-5xl font-black text-sky-600 tracking-tighter outline-none bg-transparent ${isLocked ? 'cursor-not-allowed' : ''}`}
-                        placeholder="0" 
-                      />
-                    </div>
-                  </div>
+              <div className="bg-white p-5 rounded-[2rem] border border-gray-100 text-left flex flex-col justify-between">
+                <div>
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1 flex items-center gap-1"><Layers size={10}/> {t.adjustAmount}</label>
+                  <span className="text-3xl font-black text-sky-600">{t.taka} {currentDayData.adjustAmount || 0}</span>
+                </div>
+                <button 
+                  onClick={() => setDetailModalType('adjustAmount')}
+                  className="mt-3 py-1.5 px-4 bg-gray-50 text-[10px] font-black text-gray-500 rounded-full border border-gray-100 hover:bg-sky-50 hover:text-sky-600 transition-all self-start uppercase tracking-widest"
+                >
+                  {lang === 'BN' ? 'বিবরণ' : 'Description'}
+                </button>
               </div>
 
               <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 border-l-8 border-l-sky-500">
@@ -604,11 +610,26 @@ const App: React.FC = () => {
 
       {/* Detail Modals */}
       {detailModalType && (
-        <DetailModal type={detailModalType} entries={detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : (currentDayData.expenseDetails || [])} onClose={() => setDetailModalType(null)} readOnly={isLocked} onSave={(entries) => {
+        <DetailModal 
+          type={detailModalType} 
+          entries={
+            detailModalType === 'purchase' ? (currentDayData.purchaseDetails || []) : 
+            detailModalType === 'expense' ? (currentDayData.expenseDetails || []) : 
+            (currentDayData.adjustAmountDetails || [])
+          } 
+          onClose={() => setDetailModalType(null)} 
+          readOnly={isLocked} 
+          onSave={(entries) => {
             const total = entries.reduce((sum, e) => sum + e.amount, 0);
-            updateDayData({ [detailModalType === 'purchase' ? 'purchase' : 'expense']: total, [detailModalType === 'purchase' ? 'purchaseDetails' : 'expenseDetails']: entries });
+            const dataKey = detailModalType === 'purchase' ? 'purchase' : 
+                            detailModalType === 'expense' ? 'expense' : 'adjustAmount';
+            const detailsKey = detailModalType === 'purchase' ? 'purchaseDetails' : 
+                               detailModalType === 'expense' ? 'expenseDetails' : 'adjustAmountDetails';
+            updateDayData({ [dataKey]: total, [detailsKey]: entries });
             setDetailModalType(null);
-          }} lang={lang} />
+          }} 
+          lang={lang} 
+        />
       )}
 
       {/* Settings Panel */}
@@ -642,20 +663,6 @@ const App: React.FC = () => {
                   value={currentDayData.previousBalance || ''} 
                   readOnly={isLocked}
                   onChange={(e) => updateDayData({ previousBalance: parseFloat(e.target.value) || 0 })} 
-                  className={`w-full border rounded-xl px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'bg-gray-200/50 cursor-not-allowed border-gray-100' : 'bg-white border-gray-200 focus:border-sky-400'}`} 
-                  placeholder="0" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest">{t.adjustAmount}</label>
-              <div className="bg-gray-50 p-5 rounded-[2rem] border border-gray-100">
-                <input 
-                  type="number" 
-                  value={currentDayData.adjustAmount || ''} 
-                  readOnly={isLocked}
-                  onChange={(e) => updateDayData({ adjustAmount: parseFloat(e.target.value) || 0 })} 
                   className={`w-full border rounded-xl px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'bg-gray-200/50 cursor-not-allowed border-gray-100' : 'bg-white border-gray-200 focus:border-sky-400'}`} 
                   placeholder="0" 
                 />

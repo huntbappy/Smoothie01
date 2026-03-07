@@ -3,7 +3,7 @@ import { X, Plus, Trash2, Save } from 'lucide-react';
 import { DetailEntry } from '../types';
 
 interface DetailModalProps {
-  type: 'purchase' | 'expense';
+  type: 'purchase' | 'expense' | 'adjustAmount';
   entries: DetailEntry[];
   onClose: () => void;
   onSave: (entries: DetailEntry[]) => void;
@@ -17,6 +17,18 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
   );
 
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  const getTitle = () => {
+    if (lang === 'EN') {
+      if (type === 'purchase') return 'Inventory Details';
+      if (type === 'expense') return 'Expense Details';
+      return 'Adjustment Details';
+    } else {
+      if (type === 'purchase') return 'ইনভেন্টরি ডিটেইলস';
+      if (type === 'expense') return 'ব্যয় ডিটেইলস';
+      return 'অ্যাডজাস্টমেন্ট ডিটেইলস';
+    }
+  };
 
   useEffect(() => {
     if (!readOnly) {
@@ -66,7 +78,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
       <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100">
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <h3 className="text-xl font-black uppercase tracking-tight text-black">
-            {lang === 'EN' ? (type === 'purchase' ? 'Inventory Details' : 'Expense Details') : (type === 'purchase' ? 'ইনভেন্টরি ডিটেইলস' : 'ব্যয় ডিটেইলস')}
+            {getTitle()}
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors border border-transparent hover:border-gray-200">
             <X size={24} className="text-gray-400" />

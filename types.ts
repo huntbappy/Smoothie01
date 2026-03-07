@@ -31,6 +31,7 @@ export interface DayData {
   expenseDetails?: DetailEntry[];
   previousBalance: number;
   adjustAmount?: number;
+  adjustAmountDetails?: DetailEntry[];
   notes: string;
   isSynced?: boolean;
   isLocked?: boolean;
