@@ -4,8 +4,75 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-black;
+    @apply bg-slate-950 text-white min-h-screen;
     -webkit-tap-highlight-color: transparent;
+    background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .neon-text-blue {
+    @apply text-sky-300;
+    text-shadow: 0 0 7px rgba(56, 189, 248, 0.9), 0 0 15px rgba(56, 189, 248, 0.6), 0 0 25px rgba(56, 189, 248, 0.4);
+  }
+  .neon-text-pink {
+    @apply text-pink-300;
+    text-shadow: 0 0 7px rgba(244, 114, 182, 0.9), 0 0 15px rgba(244, 114, 182, 0.6), 0 0 25px rgba(244, 114, 182, 0.4);
+  }
+  .neon-text-green {
+    @apply text-emerald-300;
+    text-shadow: 0 0 7px rgba(52, 211, 153, 0.9), 0 0 15px rgba(52, 211, 153, 0.6), 0 0 25px rgba(52, 211, 153, 0.4);
+  }
+  .neon-text-white {
+    @apply text-white;
+    text-shadow: 0 0 7px rgba(255, 255, 255, 0.9), 0 0 15px rgba(255, 255, 255, 0.6), 0 0 25px rgba(255, 255, 255, 0.4);
+  }
+  .neon-text-coffee {
+    @apply text-amber-300;
+    text-shadow: 0 0 7px rgba(217, 119, 6, 0.9), 0 0 15px rgba(217, 119, 6, 0.6), 0 0 25px rgba(217, 119, 6, 0.4);
+  }
+  
+  .water-drop {
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      inset 6px 6px 12px rgba(255, 255, 255, 0.1),
+      inset -6px -6px 12px rgba(0, 0, 0, 0.4),
+      10px 15px 25px rgba(0, 0, 0, 0.5);
+    border-radius: 2.5rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .water-drop:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 
+      inset 8px 8px 16px rgba(255, 255, 255, 0.15),
+      inset -8px -8px 16px rgba(0, 0, 0, 0.5),
+      15px 20px 35px rgba(0, 0, 0, 0.6);
+  }
+
+  .water-drop-field {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      inset 3px 3px 6px rgba(255, 255, 255, 0.05),
+      inset -3px -3px 6px rgba(0, 0, 0, 0.3),
+      4px 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 1.25rem;
+    @apply text-white font-black;
+  }
+
+  .water-drop-field:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(56, 189, 248, 0.5);
+    box-shadow: 
+      inset 4px 4px 8px rgba(255, 255, 255, 0.1),
+      inset -4px -4px 8px rgba(0, 0, 0, 0.4),
+      0 0 15px rgba(56, 189, 248, 0.3);
   }
 }
 
@@ -16,7 +83,7 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 input::-webkit-outer-spin-button,

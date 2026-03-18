@@ -74,14 +74,14 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-xl font-black uppercase tracking-tight text-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="water-drop w-full max-w-xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20">
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+          <h3 className="text-xl font-black uppercase tracking-tight text-white neon-text-white">
             {getTitle()}
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors border border-transparent hover:border-gray-200">
-            <X size={24} className="text-gray-400" />
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors border border-transparent hover:border-white/20">
+            <X size={24} className="text-white/40" />
           </button>
         </div>
 
@@ -96,7 +96,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
                 onKeyDown={handleKeyDown}
                 onChange={(e) => updateRow(entry.id, 'description', e.target.value)}
                 placeholder={lang === 'EN' ? 'Description' : 'বিবরণ'}
-                className={`detail-input flex-1 border border-gray-200 rounded-2xl px-4 py-3 font-medium outline-none transition-all text-black ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50 focus:ring-4 focus:ring-sky-100 focus:border-sky-400'}`}
+                className={`detail-input flex-1 water-drop-field px-4 py-3 font-medium outline-none transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'focus:border-sky-400'}`}
               />
               <input
                 type="number"
@@ -105,29 +105,29 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
                 onKeyDown={handleKeyDown}
                 onChange={(e) => updateRow(entry.id, 'amount', parseFloat(e.target.value) || 0)}
                 placeholder="0"
-                className={`detail-input w-24 border border-gray-200 rounded-2xl px-4 py-3 font-black text-center outline-none transition-all text-black ${readOnly ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50 focus:ring-4 focus:ring-sky-100 focus:border-sky-400'}`}
+                className={`detail-input w-24 water-drop-field px-4 py-3 font-black text-center outline-none transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'focus:border-sky-400'}`}
               />
               {!readOnly && (
-                <button onClick={() => removeRow(entry.id)} className="p-3 text-gray-300 hover:text-red-500 transition-colors">
+                <button onClick={() => removeRow(entry.id)} className="p-3 text-white/20 hover:text-red-500 transition-colors">
                   <Trash2 size={20} />
                 </button>
               )}
             </div>
           ))}
           {!readOnly && (
-            <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 font-bold hover:border-lemongreen-300 hover:text-lemongreen-500 transition-all flex items-center justify-center gap-2">
-              <Plus size={20} /> {lang === 'EN' ? 'Add Row' : 'নতুন রো'}
+            <button onClick={addRow} className="w-full py-4 border-2 border-dashed border-white/10 rounded-2xl text-white/40 font-bold hover:border-sky-500/50 hover:text-sky-400 transition-all flex items-center justify-center gap-2 bg-white/5">
+              <Plus size={20} /> <span className="neon-text-white opacity-60">{lang === 'EN' ? 'Add Row' : 'নতুন রো'}</span>
             </button>
           )}
         </div>
 
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-4 bg-white border border-gray-200 text-black font-black rounded-2xl hover:bg-gray-100 transition-all">
-            {readOnly ? (lang === 'EN' ? 'Close' : 'বন্ধ করুন') : (lang === 'EN' ? 'Cancel' : 'বাতিল')}
+        <div className="p-6 bg-white/5 border-t border-white/10 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-4 bg-white/5 border border-white/10 text-white/60 font-black rounded-2xl hover:bg-white/10 transition-all">
+            <span className="neon-text-white opacity-80">{readOnly ? (lang === 'EN' ? 'Close' : 'বন্ধ করুন') : (lang === 'EN' ? 'Cancel' : 'বাতিল')}</span>
           </button>
           {!readOnly && (
-            <button onClick={() => onSave(localEntries)} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-lg shadow-sky-100 hover:bg-sky-600 transition-all flex items-center justify-center gap-2">
-              <Save size={20} /> {lang === 'EN' ? 'Save' : 'সেভ করুন'}
+            <button onClick={() => onSave(localEntries)} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-sky-600 transition-all flex items-center justify-center gap-2">
+              <Save size={20} /> <span className="neon-text-white">{lang === 'EN' ? 'Save' : 'সেভ করুন'}</span>
             </button>
           )}
         </div>
