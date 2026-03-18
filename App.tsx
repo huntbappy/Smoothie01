@@ -284,10 +284,6 @@ const App: React.FC = () => {
         text += `   *Total ${t.expense}: ${t.taka}${currentDayData.expense}*\n\n`;
       }
 
-      text += `--------------------------------\n`;
-      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
-      text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
-      text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
       // Adjust Amount Section
       if ((currentDayData.adjustAmount || 0) !== 0) {
         text += `🔄 *${t.adjustAmount} ${lang === 'BN' ? 'বিস্তারিত' : 'Details'}*:\n`;
@@ -301,6 +297,13 @@ const App: React.FC = () => {
         text += `   *Total ${t.adjustAmount}: ${t.taka}${currentDayData.adjustAmount}*\n\n`;
       }
 
+      text += `--------------------------------\n`;
+      text += `🏦 *${t.previousBalance}: ${t.taka}${currentDayData.previousBalance}*\n`;
+      text += `💰 *${t.totalSales}: ${t.taka}${totals.grandTotal}*\n`;
+      text += `🛒 *${t.totalPurchase}: ${t.taka}${currentDayData.purchase || 0}*\n`;
+      text += `💸 *${t.totalExpense}: ${t.taka}${currentDayData.expense || 0}*\n`;
+      text += `💵 *${t.cashInHand}: ${t.taka}${cashInHand}*\n`;
+      text += `🔄 *${t.totalAdjustAmount}: ${t.taka}${currentDayData.adjustAmount || 0}*\n`;
       text += `⚖️ *${t.totalBalance}: ${t.taka}${totalBalance}*\n`;
       
       if (currentDayData.notes) {
