@@ -451,7 +451,7 @@ const App: React.FC = () => {
                 <div 
                   key={item.id} 
                   className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70 grayscale-[0.2]' : ''}`}
-                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                  style={{ backgroundColor: item.color ? `${item.color}15` : undefined }}
                 >
                   <div className="col-span-5 flex items-center gap-2">
                     <span className="text-lg drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">{item.icon || '🥤'}</span>
@@ -470,7 +470,7 @@ const App: React.FC = () => {
                       onFocus={(e) => e.currentTarget.select()} 
                       onChange={(e) => updateQty(item.id, 'q250', e.target.value)} 
                       className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                   <div className="col-span-2">
@@ -483,7 +483,7 @@ const App: React.FC = () => {
                       onFocus={(e) => e.currentTarget.select()} 
                       onChange={(e) => updateQty(item.id, 'q350', e.target.value)} 
                       className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                   <div className="col-span-3 text-right">
@@ -589,7 +589,7 @@ const App: React.FC = () => {
                 <div 
                   key={item.id} 
                   className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70' : ''}`}
-                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                  style={{ backgroundColor: item.color ? `${item.color}15` : undefined }}
                 >
                   <div className="col-span-5"><p className="text-sm font-bold text-white leading-tight neon-text-white">{lang === 'BN' ? item.nameBN : item.name}</p></div>
                   <div className="col-span-2">
@@ -602,7 +602,7 @@ const App: React.FC = () => {
                       onFocus={(e) => e.currentTarget.select()} 
                       onChange={(e) => updateStockData(item.id, 'qty', e.target.value)} 
                       className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                   <div className="col-span-2">
@@ -615,7 +615,7 @@ const App: React.FC = () => {
                       onFocus={(e) => e.currentTarget.select()} 
                       onChange={(e) => updateStockData(item.id, 'taka', e.target.value)} 
                       className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                   <div className="col-span-3 text-right"><span className="text-sm font-black neon-text-coffee">{t.taka}{item.itemTotal}</span></div>
@@ -767,10 +767,26 @@ const App: React.FC = () => {
               <Plus size={20} /> Add New
             </button>
             {viewMode === 'sales' ? items.map((item, idx) => (
-              <div key={item.id} className="water-drop p-4 relative border border-white/10">
+              <div 
+                key={item.id} 
+                className="water-drop p-4 relative border border-white/10"
+                style={{ backgroundColor: item.color ? `${item.color}15` : undefined }}
+              >
                 <div className="flex gap-3 mb-2">
-                   <input type="text" value={item.icon} onChange={(e) => { const n = [...items]; n[idx].icon = e.target.value; setItems(n); }} className="w-12 h-12 text-center water-drop-field text-xl" />
-                   <input type="text" value={item.name} onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} className="flex-1 water-drop-field px-3 font-bold" />
+                   <input 
+                    type="text" 
+                    value={item.icon} 
+                    onChange={(e) => { const n = [...items]; n[idx].icon = e.target.value; setItems(n); }} 
+                    className="w-12 h-12 text-center water-drop-field text-xl" 
+                    style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                   />
+                   <input 
+                    type="text" 
+                    value={item.name} 
+                    onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} 
+                    className="flex-1 water-drop-field px-3 font-bold" 
+                    style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="space-y-1">
@@ -780,6 +796,7 @@ const App: React.FC = () => {
                       value={item.price250} 
                       onChange={(e) => { const n = [...items]; n[idx].price250 = parseInt(e.target.value) || 0; setItems(n); }} 
                       className="w-full water-drop-field p-2 text-center font-bold outline-none focus:border-sky-400" 
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                   <div className="space-y-1">
@@ -789,14 +806,25 @@ const App: React.FC = () => {
                       value={item.price350} 
                       onChange={(e) => { const n = [...items]; n[idx].price350 = parseInt(e.target.value) || 0; setItems(n); }} 
                       className="w-full water-drop-field p-2 text-center font-bold outline-none focus:border-sky-400" 
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                     />
                   </div>
                 </div>
                 <button onClick={() => deleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
               </div>
             )) : stockItems.map((item, idx) => (
-              <div key={item.id} className="water-drop p-4 relative flex justify-between border border-white/10">
-                <input type="text" value={item.name} onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} className="water-drop-field px-3 py-2 font-bold w-full" />
+              <div 
+                key={item.id} 
+                className="water-drop p-4 relative flex justify-between border border-white/10"
+                style={{ backgroundColor: item.color ? `${item.color}15` : undefined }}
+              >
+                <input 
+                  type="text" 
+                  value={item.name} 
+                  onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} 
+                  className="water-drop-field px-3 py-2 font-bold w-full" 
+                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                />
                 <button onClick={() => deleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
               </div>
             ))}
