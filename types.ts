@@ -15,6 +15,7 @@ export interface StockItemConfig {
   id: string;
   name: string;
   nameBN: string;
+  color?: string;
 }
 
 export interface DetailEntry {

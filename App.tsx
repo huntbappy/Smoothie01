@@ -448,7 +448,11 @@ const App: React.FC = () => {
             
             <div className="space-y-4 mb-8">
               {totals.itemsWithTotals.map((item) => (
-                <div key={item.id} className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70 grayscale-[0.2]' : ''}`}>
+                <div 
+                  key={item.id} 
+                  className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70 grayscale-[0.2]' : ''}`}
+                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                >
                   <div className="col-span-5 flex items-center gap-2">
                     <span className="text-lg drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">{item.icon || '🥤'}</span>
                     <div>
@@ -457,10 +461,30 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <input type="number" value={item.q250 || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateQty(item.id, 'q250', e.target.value)} className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                    <input 
+                      type="number" 
+                      value={item.q250 || ''} 
+                      placeholder="0" 
+                      readOnly={isLocked} 
+                      onKeyDown={handleKeyDown} 
+                      onFocus={(e) => e.currentTarget.select()} 
+                      onChange={(e) => updateQty(item.id, 'q250', e.target.value)} 
+                      className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                    />
                   </div>
                   <div className="col-span-2">
-                    <input type="number" value={item.q350 || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateQty(item.id, 'q350', e.target.value)} className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                    <input 
+                      type="number" 
+                      value={item.q350 || ''} 
+                      placeholder="0" 
+                      readOnly={isLocked} 
+                      onKeyDown={handleKeyDown} 
+                      onFocus={(e) => e.currentTarget.select()} 
+                      onChange={(e) => updateQty(item.id, 'q350', e.target.value)} 
+                      className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                    />
                   </div>
                   <div className="col-span-3 text-right">
                     <span className="text-sm font-black neon-text-blue">{t.taka}{item.itemTotal}</span>
@@ -485,7 +509,7 @@ const App: React.FC = () => {
                   </div>
                   <button 
                     onClick={() => setDetailModalType('purchase')}
-                    className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-start uppercase tracking-widest"
+                    className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-center uppercase tracking-widest"
                   >
                     {lang === 'BN' ? 'বিবরণ' : 'Description'}
                   </button>
@@ -497,7 +521,7 @@ const App: React.FC = () => {
                   </div>
                   <button 
                     onClick={() => setDetailModalType('expense')}
-                    className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-start uppercase tracking-widest"
+                    className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-center uppercase tracking-widest"
                   >
                     {lang === 'BN' ? 'বিবরণ' : 'Description'}
                   </button>
@@ -505,7 +529,6 @@ const App: React.FC = () => {
               </div>
 
               <div className="water-drop p-6 flex justify-between items-center relative overflow-hidden">
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.8)]" />
                   <div>
                     <label className="text-[9px] font-black neon-text-white opacity-60 uppercase tracking-widest block mb-1">{t.cashInHand}</label>
                     <span className="text-3xl font-black neon-text-blue">{t.taka} {cashInHand}</span>
@@ -534,7 +557,7 @@ const App: React.FC = () => {
                 </div>
                 <button 
                   onClick={() => setDetailModalType('adjustAmount')}
-                  className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-start uppercase tracking-widest"
+                  className="mt-3 py-1.5 px-4 bg-white/5 text-[10px] font-black neon-text-white opacity-80 rounded-full border border-white/10 hover:bg-sky-500/20 hover:text-sky-400 transition-all self-center uppercase tracking-widest"
                 >
                   {lang === 'BN' ? 'বিবরণ' : 'Description'}
                 </button>
@@ -563,13 +586,37 @@ const App: React.FC = () => {
             </div>
             <div className="space-y-3 mb-8">
               {stockTotals.stockItemsWithTotals.map((item) => (
-                <div key={item.id} className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70' : ''}`}>
+                <div 
+                  key={item.id} 
+                  className={`grid grid-cols-12 gap-2 items-center p-3 water-drop ${isLocked ? 'opacity-70' : ''}`}
+                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                >
                   <div className="col-span-5"><p className="text-sm font-bold text-white leading-tight neon-text-white">{lang === 'BN' ? item.nameBN : item.name}</p></div>
                   <div className="col-span-2">
-                    <input type="number" value={item.qty || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateStockData(item.id, 'qty', e.target.value)} className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                    <input 
+                      type="number" 
+                      value={item.qty || ''} 
+                      placeholder="0" 
+                      readOnly={isLocked} 
+                      onKeyDown={handleKeyDown} 
+                      onFocus={(e) => e.currentTarget.select()} 
+                      onChange={(e) => updateStockData(item.id, 'qty', e.target.value)} 
+                      className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                    />
                   </div>
                   <div className="col-span-2">
-                    <input type="number" value={item.taka || ''} placeholder="0" readOnly={isLocked} onKeyDown={handleKeyDown} onFocus={(e) => e.currentTarget.select()} onChange={(e) => updateStockData(item.id, 'taka', e.target.value)} className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                    <input 
+                      type="number" 
+                      value={item.taka || ''} 
+                      placeholder="0" 
+                      readOnly={isLocked} 
+                      onKeyDown={handleKeyDown} 
+                      onFocus={(e) => e.currentTarget.select()} 
+                      onChange={(e) => updateStockData(item.id, 'taka', e.target.value)} 
+                      className={`qty-input w-full text-center water-drop-field py-2.5 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                      style={{ backgroundColor: item.color ? `${item.color}30` : undefined }}
+                    />
                   </div>
                   <div className="col-span-3 text-right"><span className="text-sm font-black neon-text-coffee">{t.taka}{item.itemTotal}</span></div>
                 </div>

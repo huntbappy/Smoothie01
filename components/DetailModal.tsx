@@ -96,7 +96,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
                 onKeyDown={handleKeyDown}
                 onChange={(e) => updateRow(entry.id, 'description', e.target.value)}
                 placeholder={lang === 'EN' ? 'Description' : 'বিবরণ'}
-                className={`detail-input flex-1 water-drop-field px-4 py-3 font-medium outline-none transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'focus:border-sky-400'}`}
+                className={`detail-input flex-1 water-drop-field px-4 py-3 font-medium outline-none transition-all text-center ${readOnly ? 'opacity-50 cursor-not-allowed' : 'focus:border-sky-400'}`}
               />
               <input
                 type="number"
