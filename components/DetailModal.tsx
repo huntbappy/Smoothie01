@@ -126,7 +126,13 @@ const DetailModal: React.FC<DetailModalProps> = ({ type, entries, onClose, onSav
             <span className="neon-text-white opacity-80">{readOnly ? (lang === 'EN' ? 'Close' : 'বন্ধ করুন') : (lang === 'EN' ? 'Cancel' : 'বাতিল')}</span>
           </button>
           {!readOnly && (
-            <button onClick={() => onSave(localEntries)} className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-sky-600 transition-all flex items-center justify-center gap-2">
+            <button 
+              onClick={() => {
+                const cleaned = localEntries.filter(e => e.description.trim() !== '' || e.amount !== 0);
+                onSave(cleaned.length > 0 ? cleaned : [{ id: '1', description: '', amount: 0 }]);
+              }} 
+              className="flex-1 py-4 bg-sky-500 text-white font-black rounded-2xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-sky-600 transition-all flex items-center justify-center gap-2"
+            >
               <Save size={20} /> <span className="neon-text-white">{lang === 'EN' ? 'Save' : 'সেভ করুন'}</span>
             </button>
           )}

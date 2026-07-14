@@ -5,6 +5,7 @@ import {
   FileText, Copy, Wallet, ShoppingBag, 
   Receipt, Lock, Unlock, Layers, LayoutGrid, ChevronRight, Check, ShieldCheck, Cloud, AlertCircle, Key, ToggleRight, ToggleLeft
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { INITIAL_ITEMS, STOCK_ITEMS, TRANSLATIONS } from './constants';
 import { ItemConfig, StockItemConfig, Language, DayData, ViewMode, MonthStockData } from './types';
 import SmoothieLogo from './components/SmoothieLogo';
@@ -32,6 +33,10 @@ const CLOUD_MOCK_KEY = 'cloud_drive_history';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'EN');
+  const [branch, setBranch] = useState<'CHASHARA' | 'KHANPUR'>(() => {
+    const saved = localStorage.getItem('activeBranch');
+    return (saved === 'CHASHARA' || saved === 'KHANPUR') ? saved : 'CHASHARA';
+  });
   const [viewMode, setViewMode] = useState<ViewMode>(() => (localStorage.getItem('viewMode') as ViewMode) || 'sales');
   const [items, setItems] = useState<ItemConfig[]>(() => {
     const saved = localStorage.getItem('items');
@@ -44,14 +49,52 @@ const App: React.FC = () => {
   
   const [currentDate, setCurrentDate] = useState(() => getLocalDateString());
   
-  const [history, setHistory] = useState<Record<string, DayData>>(() => {
-    const saved = localStorage.getItem('history');
-    return saved ? JSON.parse(saved) : {};
+  const [histories, setHistories] = useState<Record<'CHASHARA' | 'KHANPUR', Record<string, DayData>>>(() => {
+    const legacySaved = localStorage.getItem('history');
+    const chasharaSaved = localStorage.getItem('history_CHASHARA');
+    const khanpurSaved = localStorage.getItem('history_KHANPUR');
+
+    const chashara = chasharaSaved ? JSON.parse(chasharaSaved) : (legacySaved ? JSON.parse(legacySaved) : {});
+    const khanpur = khanpurSaved ? JSON.parse(khanpurSaved) : {};
+
+    return { CHASHARA: chashara, KHANPUR: khanpur };
   });
-  const [stockHistory, setStockHistory] = useState<Record<string, MonthStockData>>(() => {
-    const saved = localStorage.getItem('stockHistory');
-    return saved ? JSON.parse(saved) : {};
+
+  const [stockHistories, setStockHistories] = useState<Record<'CHASHARA' | 'KHANPUR', Record<string, MonthStockData>>>(() => {
+    const legacySaved = localStorage.getItem('stockHistory');
+    const chasharaSaved = localStorage.getItem('stockHistory_CHASHARA');
+    const khanpurSaved = localStorage.getItem('stockHistory_KHANPUR');
+
+    const chashara = chasharaSaved ? JSON.parse(chasharaSaved) : (legacySaved ? JSON.parse(legacySaved) : {});
+    const khanpur = khanpurSaved ? JSON.parse(khanpurSaved) : {};
+
+    return { CHASHARA: chashara, KHANPUR: khanpur };
   });
+
+  const history = histories[branch];
+  const stockHistory = stockHistories[branch];
+
+  const setHistory = (value: Record<string, DayData> | ((prev: Record<string, DayData>) => Record<string, DayData>)) => {
+    setHistories(prev => {
+      const currentBranchHistory = prev[branch];
+      const nextHistory = typeof value === 'function' ? value(currentBranchHistory) : value;
+      return {
+        ...prev,
+        [branch]: nextHistory
+      };
+    });
+  };
+
+  const setStockHistory = (value: Record<string, MonthStockData> | ((prev: Record<string, MonthStockData>) => Record<string, MonthStockData>)) => {
+    setStockHistories(prev => {
+      const currentBranchStockHistory = prev[branch];
+      const nextStockHistory = typeof value === 'function' ? value(currentBranchStockHistory) : value;
+      return {
+        ...prev,
+        [branch]: nextStockHistory
+      };
+    });
+  };
 
   const [securityPin, setSecurityPin] = useState(() => localStorage.getItem('security_pin') || '0000');
   const [isCloudSyncEnabled, setIsCloudSyncEnabled] = useState<boolean>(() => {
@@ -76,13 +119,27 @@ const App: React.FC = () => {
 
   const [detailModalType, setDetailModalType] = useState<'purchase' | 'expense' | 'adjustAmount' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Custom Toast & Delete Confirmation States
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const actualNow = getLocalDateString();
-      // If it's a new day, we update currentDate to today if it was previously pointing to the previous "today"
-      const prevActualToday = getLocalDateString(); 
-      // This is a simple logic to auto-advance date for open apps
     }, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -91,8 +148,23 @@ const App: React.FC = () => {
   useEffect(() => localStorage.setItem('viewMode', viewMode), [viewMode]);
   useEffect(() => localStorage.setItem('items', JSON.stringify(items)), [items]);
   useEffect(() => localStorage.setItem('stockItems', JSON.stringify(stockItems)), [stockItems]);
-  useEffect(() => localStorage.setItem('history', JSON.stringify(history)), [history]);
-  useEffect(() => localStorage.setItem('stockHistory', JSON.stringify(stockHistory)), [stockHistory]);
+  
+  useEffect(() => {
+    localStorage.setItem('activeBranch', branch);
+  }, [branch]);
+
+  useEffect(() => {
+    localStorage.setItem('history_CHASHARA', JSON.stringify(histories.CHASHARA));
+    localStorage.setItem('history_KHANPUR', JSON.stringify(histories.KHANPUR));
+    localStorage.setItem('history', JSON.stringify(histories[branch]));
+  }, [histories, branch]);
+
+  useEffect(() => {
+    localStorage.setItem('stockHistory_CHASHARA', JSON.stringify(stockHistories.CHASHARA));
+    localStorage.setItem('stockHistory_KHANPUR', JSON.stringify(stockHistories.KHANPUR));
+    localStorage.setItem('stockHistory', JSON.stringify(stockHistories[branch]));
+  }, [stockHistories, branch]);
+
   useEffect(() => localStorage.setItem('security_pin', securityPin), [securityPin]);
   useEffect(() => localStorage.setItem('isCloudSyncEnabled', JSON.stringify(isCloudSyncEnabled)), [isCloudSyncEnabled]);
 
@@ -236,7 +308,7 @@ const App: React.FC = () => {
 
   const generateSummaryText = () => {
     if (viewMode === 'sales') {
-      let text = `📊 *${t.title} - ${t.dailySales}*\n📅 ${formattedDisplayDate}\n\n`;
+      let text = `📊 *${t.title} - ${t.dailySales} (${branch})*\n📅 ${formattedDisplayDate}\n\n`;
       
       // Table Header
       const subtotalLabel = lang === 'BN' ? 'সাবটোটাল' : 'Subtotal';
@@ -312,7 +384,7 @@ const App: React.FC = () => {
       
       return text;
     } else {
-      let text = `📦 *${t.title} - ${t.monthlyStock}*\n📅 ${formattedDisplayDate}\n\n`;
+      let text = `📦 *${t.title} - ${t.monthlyStock} (${branch})*\n📅 ${formattedDisplayDate}\n\n`;
       stockTotals.stockItemsWithTotals.forEach(item => {
         if (item.itemTotal > 0) {
           text += `🛒 *${lang === 'BN' ? item.nameBN : item.name}*: ${item.qty} x ${item.taka} = ${t.taka}${item.itemTotal}\n`;
@@ -351,14 +423,15 @@ const App: React.FC = () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: t.title, text: summary });
+        showToast(lang === 'BN' ? 'সফলভাবে শেয়ার করা হয়েছে!' : 'Shared successfully!');
       } catch (err) {
         // Fallback to clipboard if share fails or is cancelled
         navigator.clipboard.writeText(summary);
-        alert(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
+        showToast(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
       }
     } else {
       navigator.clipboard.writeText(summary);
-      alert(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
+      showToast(lang === 'BN' ? 'ডাটা কপি করা হয়েছে!' : 'Data copied to clipboard!');
     }
     setIsShareModalOpen(false);
   };
@@ -366,11 +439,18 @@ const App: React.FC = () => {
   const addProduct = () => {
     const newItem = viewMode === 'sales' ? { id: Date.now().toString(), name: 'New Item', nameBN: 'নতুন আইটেম', price250: 100, price350: 150, icon: '🥤' } : { id: 's' + Date.now().toString(), name: 'New Stock', nameBN: 'নতুন স্টক' };
     viewMode === 'sales' ? setItems([...items, newItem as ItemConfig]) : setStockItems([...stockItems, newItem as StockItemConfig]);
+    showToast(lang === 'BN' ? 'নতুন আইটেম যোগ করা হয়েছে!' : 'New product added!');
   };
 
-  const deleteProduct = (id: string) => {
-    if (!window.confirm(lang === 'BN' ? 'মুছে ফেলতে চান?' : 'Delete product?')) return;
-    viewMode === 'sales' ? setItems(items.filter(i => i.id !== id)) : setStockItems(stockItems.filter(i => i.id !== id));
+  const confirmDeleteProduct = (id: string) => {
+    setDeletingProductId(id);
+  };
+
+  const executeDeleteProduct = () => {
+    if (!deletingProductId) return;
+    viewMode === 'sales' ? setItems(items.filter(i => i.id !== deletingProductId)) : setStockItems(stockItems.filter(i => i.id !== deletingProductId));
+    setDeletingProductId(null);
+    showToast(lang === 'BN' ? 'আইটেমটি মুছে ফেলা হয়েছে!' : 'Product deleted!', 'info');
   };
 
   const resetPinForm = () => {
@@ -386,10 +466,71 @@ const App: React.FC = () => {
     } else {
       if (pinForm.new.length === 4 && pinForm.new === pinForm.confirm) {
         setSecurityPin(pinForm.new);
-        alert(t.pinSuccess);
+        showToast(t.pinSuccess);
         setIsChangePinModalOpen(false);
         resetPinForm();
       } else { setChangePinError(t.pinMismatch); }
+    }
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const dataToExport = {
+        lang: localStorage.getItem('lang') || 'EN',
+        items: localStorage.getItem('items'),
+        stockItems: localStorage.getItem('stockItems'),
+        activeBranch: localStorage.getItem('activeBranch') || 'CHASHARA',
+        history_CHASHARA: localStorage.getItem('history_CHASHARA'),
+        history_KHANPUR: localStorage.getItem('history_KHANPUR'),
+        stockHistory_CHASHARA: localStorage.getItem('stockHistory_CHASHARA'),
+        stockHistory_KHANPUR: localStorage.getItem('stockHistory_KHANPUR'),
+        security_pin: localStorage.getItem('security_pin') || '0000',
+      };
+      
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+        JSON.stringify(dataToExport, null, 2)
+      )}`;
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', jsonString);
+      downloadAnchor.setAttribute('download', `smoothie_bar_backup_${getLocalDateString()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast(lang === 'BN' ? 'ব্যাকআপ ডাউনলোড শুরু হয়েছে!' : 'Backup download started!');
+    } catch (error) {
+      showToast(lang === 'BN' ? 'ব্যাকআপ ডাউনলোড ব্যর্থ হয়েছে!' : 'Failed to export backup!', 'error');
+    }
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileReader = new FileReader();
+    if (e.target.files && e.target.files[0]) {
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target?.result as string);
+          
+          if (parsed.lang) localStorage.setItem('lang', parsed.lang);
+          if (parsed.items) localStorage.setItem('items', parsed.items);
+          if (parsed.stockItems) localStorage.setItem('stockItems', parsed.stockItems);
+          if (parsed.activeBranch) localStorage.setItem('activeBranch', parsed.activeBranch);
+          
+          if (parsed.history_CHASHARA) localStorage.setItem('history_CHASHARA', parsed.history_CHASHARA);
+          if (parsed.history_KHANPUR) localStorage.setItem('history_KHANPUR', parsed.history_KHANPUR);
+          
+          if (parsed.stockHistory_CHASHARA) localStorage.setItem('stockHistory_CHASHARA', parsed.stockHistory_CHASHARA);
+          if (parsed.stockHistory_KHANPUR) localStorage.setItem('stockHistory_KHANPUR', parsed.stockHistory_KHANPUR);
+          
+          if (parsed.security_pin) localStorage.setItem('security_pin', parsed.security_pin);
+          
+          showToast(t.importSuccess);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } catch (error) {
+          showToast(t.importError, 'error');
+        }
+      };
     }
   };
 
@@ -411,7 +552,7 @@ const App: React.FC = () => {
              <div className="flex flex-col">
                 <h1 className="text-xl font-black tracking-tight leading-none neon-text-white uppercase">{t.title}</h1>
                 <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${viewMode === 'sales' ? 'neon-text-blue' : 'neon-text-coffee'}`}>
-                  {viewMode === 'sales' ? t.dailySales : t.monthlyStock}
+                  {viewMode === 'sales' ? `${t.dailySales} (${branch})` : `${t.monthlyStock} (${branch})`}
                 </p>
              </div>
           </div>
@@ -690,10 +831,37 @@ const App: React.FC = () => {
           </header>
           <div className="flex-1 p-6 overflow-y-auto space-y-8 custom-scrollbar">
             <div className="space-y-4">
-              <label className="text-xs font-black neon-text-white opacity-60 uppercase tracking-widest">{t.viewMode}</label>
-              <div className="flex p-1 bg-white/5 rounded-[2.5rem] border border-white/10">
-                <button onClick={() => setViewMode('sales')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs transition-all ${viewMode === 'sales' ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)]' : 'text-white/40'}`}>Sales</button>
-                <button onClick={() => setViewMode('stock')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black uppercase tracking-widest text-xs transition-all ${viewMode === 'stock' ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.4)]' : 'text-white/40'}`}>Stock</button>
+              <label className="text-xs font-black neon-text-white opacity-60 uppercase tracking-widest">
+                {lang === 'BN' ? 'পেজ সিলেক্ট করুন' : 'Select Page'}
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Chashara */}
+                <button 
+                  onClick={() => { setBranch('CHASHARA'); setViewMode('sales'); }} 
+                  className={`py-4 px-3 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all text-center border ${branch === 'CHASHARA' && viewMode === 'sales' ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)] border-sky-400' : 'text-white/40 border-transparent bg-white/5'}`}
+                >
+                  CHASHARA SALES
+                </button>
+                <button 
+                  onClick={() => { setBranch('CHASHARA'); setViewMode('stock'); }} 
+                  className={`py-4 px-3 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all text-center border ${branch === 'CHASHARA' && viewMode === 'stock' ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.4)] border-amber-500' : 'text-white/40 border-transparent bg-white/5'}`}
+                >
+                  CHASHARA STOCK
+                </button>
+
+                {/* Khanpur */}
+                <button 
+                  onClick={() => { setBranch('KHANPUR'); setViewMode('sales'); }} 
+                  className={`py-4 px-3 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all text-center border ${branch === 'KHANPUR' && viewMode === 'sales' ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)] border-sky-400' : 'text-white/40 border-transparent bg-white/5'}`}
+                >
+                  KHANPUR SALES
+                </button>
+                <button 
+                  onClick={() => { setBranch('KHANPUR'); setViewMode('stock'); }} 
+                  className={`py-4 px-3 rounded-[1.5rem] font-black uppercase tracking-widest text-xs transition-all text-center border ${branch === 'KHANPUR' && viewMode === 'stock' ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.4)] border-amber-500' : 'text-white/40 border-transparent bg-white/5'}`}
+                >
+                  KHANPUR STOCK
+                </button>
               </div>
             </div>
             <div className="space-y-4">
@@ -715,6 +883,24 @@ const App: React.FC = () => {
                   className={`w-full water-drop-field px-4 py-3 text-lg font-black outline-none transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : 'focus:border-sky-400'}`} 
                   placeholder="0" 
                 />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-xs font-black neon-text-white opacity-60 uppercase tracking-widest block">{t.backup}</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={handleExportBackup} 
+                  className="py-4 px-3 rounded-[1.5rem] bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-xs transition-all text-center flex items-center justify-center gap-2 uppercase tracking-widest"
+                >
+                  <Save size={16} className="text-sky-400" />
+                  {t.downloadBackup}
+                </button>
+                <label className="py-4 px-3 rounded-[1.5rem] bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-xs transition-all text-center flex items-center justify-center gap-2 uppercase tracking-widest cursor-pointer">
+                  <Cloud size={16} className="text-sky-400" />
+                  {t.uploadBackup}
+                  <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                </label>
               </div>
             </div>
 
@@ -777,16 +963,27 @@ const App: React.FC = () => {
                     type="text" 
                     value={item.icon} 
                     onChange={(e) => { const n = [...items]; n[idx].icon = e.target.value; setItems(n); }} 
-                    className="w-12 h-12 text-center water-drop-field text-xl" 
+                    className="w-12 h-12 text-center water-drop-field text-xl opacity-90" 
                     style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                    />
-                   <input 
-                    type="text" 
-                    value={item.name} 
-                    onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} 
-                    className="flex-1 water-drop-field px-3 font-bold" 
-                    style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
-                   />
+                   <div className="flex-1 space-y-2">
+                     <input 
+                      type="text" 
+                      value={item.name} 
+                      placeholder="English Name"
+                      onChange={(e) => { const n = [...items]; n[idx].name = e.target.value; setItems(n); }} 
+                      className="w-full water-drop-field px-3 py-1.5 text-sm font-bold outline-none" 
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                     />
+                     <input 
+                      type="text" 
+                      value={item.nameBN || ''} 
+                      placeholder="বাংলা নাম"
+                      onChange={(e) => { const n = [...items]; n[idx].nameBN = e.target.value; setItems(n); }} 
+                      className="w-full water-drop-field px-3 py-1.5 text-sm font-bold outline-none" 
+                      style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                     />
+                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="space-y-1">
@@ -810,28 +1007,98 @@ const App: React.FC = () => {
                     />
                   </div>
                 </div>
-                <button onClick={() => deleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
+                <button onClick={() => confirmDeleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
               </div>
             )) : stockItems.map((item, idx) => (
               <div 
                 key={item.id} 
-                className="water-drop p-4 relative flex justify-between border border-white/10"
+                className="water-drop p-4 relative flex flex-col gap-2 border border-white/10"
                 style={{ backgroundColor: item.color ? `${item.color}15` : undefined }}
               >
                 <input 
                   type="text" 
                   value={item.name} 
+                  placeholder="English Name"
                   onChange={(e) => { const n = [...stockItems]; n[idx].name = e.target.value; setStockItems(n); }} 
-                  className="water-drop-field px-3 py-2 font-bold w-full" 
+                  className="water-drop-field px-3 py-2 font-bold w-full outline-none" 
                   style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
                 />
-                <button onClick={() => deleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
+                <input 
+                  type="text" 
+                  value={item.nameBN || ''} 
+                  placeholder="বাংলা নাম"
+                  onChange={(e) => { const n = [...stockItems]; n[idx].nameBN = e.target.value; setStockItems(n); }} 
+                  className="water-drop-field px-3 py-2 font-bold w-full outline-none" 
+                  style={{ backgroundColor: item.color ? `${item.color}20` : undefined }}
+                />
+                <button onClick={() => confirmDeleteProduct(item.id)} className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border border-white/20"><X size={16} /></button>
               </div>
             ))}
           </div>
           <div className="p-6 border-t border-white/10 bg-slate-950"><button onClick={() => setIsProductManagementOpen(false)} className="w-full py-5 bg-sky-500 text-white font-black rounded-[2rem] shadow-[0_0_15px_rgba(56,189,248,0.4)]">Save & Close</button></div>
         </div>
       )}
+
+      {/* Toast Alert */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-3xl border border-white/25 shadow-2xl backdrop-blur-xl flex items-center gap-3 w-[90%] max-w-sm"
+            style={{
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.9) 100%)',
+              boxShadow: toast.type === 'error' 
+                ? '0 0 25px rgba(239, 68, 68, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.1)'
+                : toast.type === 'info'
+                ? '0 0 25px rgba(245, 158, 11, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.1)'
+                : '0 0 25px rgba(56, 189, 248, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.1)'
+            }}
+          >
+            <div className={`w-2 h-2 rounded-full animate-ping ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'info' ? 'bg-amber-500' : 'bg-sky-400'}`} />
+            <p className="text-white text-sm font-black tracking-tight uppercase select-none">{toast.message}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deletingProductId && (
+          <div className="fixed inset-0 z-[250] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="water-drop p-8 max-w-sm w-full text-center border border-white/20"
+            >
+              <div className="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                <AlertCircle className="text-red-500" size={32} />
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-tight mb-2 neon-text-white">
+                {lang === 'BN' ? 'মুছে ফেলতে নিশ্চিত করুন' : 'Confirm Delete'}
+              </h3>
+              <p className="text-white/60 text-sm mb-6 font-medium">
+                {lang === 'BN' ? 'আপনি কি নিশ্চিত যে আপনি এই আইটেমটি মুছে ফেলতে চান?' : 'Are you sure you want to delete this item?'}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setDeletingProductId(null)} 
+                  className="flex-1 py-4 bg-white/5 text-white/60 font-black rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-xs uppercase tracking-wider"
+                >
+                  {lang === 'BN' ? 'না, ফেরত যান' : 'No, Keep It'}
+                </button>
+                <button 
+                  onClick={executeDeleteProduct} 
+                  className="flex-1 py-4 bg-red-500 text-white font-black rounded-2xl shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:bg-red-600 transition-all text-xs uppercase tracking-wider"
+                >
+                  {lang === 'BN' ? 'হ্যাঁ, মুছুন' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
